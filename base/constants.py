@@ -1,0 +1,18 @@
+import pygame
+
+FPS = 60
+SCREEN_HEIGHT = 600
+SCREEN_WIDTH = 800 
+SCALE = 5
+
+BLACK = (0, 0, 0)
+YELLOW = (255, 255, 0)
+PINK = (255, 0, 255)
+WHITE = (255, 255, 255)
+
+
+
+
+
+
+
