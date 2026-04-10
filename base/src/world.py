@@ -1,16 +1,14 @@
-import Constants
-from Character import Character
+import constants
+from character import Character
 
-class World():
-    def __init__(self,surface,draw):
+
+class World:
+    def __init__(self, surface, draw):
         self.surface = surface
         self.draw = draw
         self.player = None
         self.world_data = None
-    
-    def update (self,screen_scroll):
+
+    def update(self, screen_scroll):
         self.player.update()
         self.player.move(screen_scroll)
-        
-        
-        
