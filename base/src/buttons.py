@@ -15,10 +15,10 @@ BRANCO = (255, 255, 255)
 PRETO = (0, 0, 0)
 AMARELO = (241, 187, 52)
 AMARELO_ESCURO = (196, 140, 25)
+AZUL = (0, 0, 255)  # 🔵 azul forte garantido
 
 # Fonte
-fonte_botao = pygame.font.SysFont("consolas", 30, bold=True)
-
+fonte_botao = pygame.font.Font("base/assets/fonts/PressStart2P-Regular.ttf", 20)
 
 # Classe Botão
 class Botao:
@@ -46,23 +46,19 @@ class Botao:
                 if self.acao:
                     self.acao()
 
-
-# 🔥 Ações dos botões
+# Ações dos botões
 def jogar():
-    print("Jogo iniciado!")  # depois você pode trocar isso pra abrir o game
-
+    print("Jogo iniciado!")
 
 def sair():
     pygame.quit()
     sys.exit()
 
-
-# Criando botões (centralizados)
+# Criando botões
 botao_jogar = Botao("JOGAR", 300, 200, 200, 60, jogar)
 botao_sair = Botao("SAIR", 300, 300, 200, 60, sair)
 
 botoes = [botao_jogar, botao_sair]
-
 
 # Loop principal
 rodando = True
@@ -73,16 +69,15 @@ while rodando:
         if evento.type == pygame.QUIT:
             rodando = False
 
-        # verificar clique em todos os botões
         for botao in botoes:
             botao.verificar_click(evento)
 
-    # desenhar
-    TELA.fill(BRANCO)
+    # 🔵 FUNDO AZUL (garantido)
+    TELA.fill(AZUL)
 
     for botao in botoes:
         botao.desenhar(TELA)
 
-    pygame.display.update()
+    pygame.display.flip()  # melhor que update()
 
 pygame.quit()
