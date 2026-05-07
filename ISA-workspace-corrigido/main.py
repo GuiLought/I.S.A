@@ -1,9 +1,9 @@
 import pygame
 import sys
 import constants
-from src.character import Character
-from src.buttons import Botao
-from src.world import World
+from src.entities import Character
+from src.ui import Botao
+from src.entities import World
 from pygame import mixer
 from utils import carregar_imagem, carregar_tile, carregar_fonte, carregar_nivel_csv
 
