@@ -1,5 +1,5 @@
 import pygame
-from utils import carregar_fonte
+from src.utils import carregar_fonte
 
 PRETO          = (0,   0,   0)
 AMARELO        = (241, 187, 52)

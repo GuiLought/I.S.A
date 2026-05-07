@@ -5,7 +5,7 @@ from src.character import Character
 from src.buttons import Botao
 from src.world import World
 from pygame import mixer
-from utils import carregar_imagem, carregar_tile, carregar_fonte, carregar_nivel_csv
+from src.utils import carregar_imagem, carregar_tile, carregar_fonte, carregar_nivel_csv
 
 # ── Inicialização ─────────────────────────────────────────────────────────────
 mixer.init()
