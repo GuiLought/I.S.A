@@ -18,7 +18,7 @@ AMARELO_ESCURO = (196, 140, 25)
 AZUL = (0, 0, 255)  # 🔵 azul forte garantido
 
 # Fonte
-fonte_botao = pygame.font.Font("base\\assets\\fonts\\upheavtt.ttf", 20)
+fonte_botao = pygame.font.Font("base\\assets\\fonts\\upheavtt.ttf", 30)
 
 # Classe Botão
 class Botao:
