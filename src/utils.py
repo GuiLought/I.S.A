@@ -1,8 +1,13 @@
 from pathlib import Path
 import csv
+import sys
 import pygame
 
-ROOT        = Path(__file__).parent.parent
+if getattr(sys, 'frozen', False):
+    ROOT = Path(sys.executable).parent
+else:
+    ROOT = Path(__file__).parent.parent
+
 ASSETS_PATH = ROOT / "assets"
 
 
