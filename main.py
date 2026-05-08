@@ -5,6 +5,7 @@ from src.character import Character
 from src.buttons import Botao
 from src.world import World
 from src.configuracoes import MenuConfiguracoes
+from src.creditos import TelaCreditos
 from pygame import mixer
 from src.utils import carregar_imagem, carregar_tile, carregar_fonte, carregar_nivel_csv
 
@@ -17,7 +18,7 @@ pygame.display.set_caption("I.S.A - Projeto QA")
 clock = pygame.time.Clock()
 
 # ── Estados possíveis ─────────────────────────────────────────────────────────
-# "MENU" | "JOGANDO" | "PAUSADO" | "GAME_OVER" | "CONFIGURACOES"
+# "MENU" | "JOGANDO" | "PAUSADO" | "GAME_OVER" | "CONFIGURACOES" | "CREDITOS"
 estado_jogo = "MENU"
 
 # ── Recursos permanentes (carregados uma vez) ─────────────────────────────────
@@ -147,6 +148,11 @@ def voltar_menu():
     estado_jogo = "MENU"
 
 
+def abrir_creditos():
+    global estado_jogo
+    estado_jogo = "CREDITOS"
+
+
 # ── Botões ────────────────────────────────────────────────────────────────────
 x_central = (constants.SCREEN_WIDTH // 2) - (constants.BTN_LARGURA // 2)
 
@@ -170,7 +176,7 @@ botoes_menu = [
     Botao(
         "CONFIGURAÇÕES",
         20,
-        500 ,
+        500,
         constants.BTN_LARGURA,
         constants.BTN_ALTURA,
         configurar_jogo,
@@ -205,13 +211,20 @@ botoes_game_over = [
     ),
 ]
 
-# ── Menu de Configurações ─────────────────────────────────────────────────────
+# ── Menu de Configurações e Créditos ─────────────────────────────────────────
 menu_cfg = MenuConfiguracoes(
     screen,
     constants.SCREEN_WIDTH,
     constants.SCREEN_HEIGHT,
     callback_voltar=voltar_menu,
-    callback_creditos=None,  # implemente depois
+    callback_creditos=abrir_creditos,
+)
+
+tela_creditos = TelaCreditos(
+    screen,
+    constants.SCREEN_WIDTH,
+    constants.SCREEN_HEIGHT,
+    callback_voltar=voltar_menu,
 )
 
 # ── Loop principal ────────────────────────────────────────────────────────────
@@ -259,6 +272,9 @@ while run:
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 estado_jogo = "MENU"
             menu_cfg.handle_event(event)
+
+        elif estado_jogo == "CREDITOS":
+            tela_creditos.handle_event(event)
 
     # 2. Atualização ───────────────────────────────────────────────────────────
     if estado_jogo == "JOGANDO" and player:
@@ -325,6 +341,11 @@ while run:
     elif estado_jogo == "CONFIGURACOES":
         screen.blit(background_img, (0, 0))
         menu_cfg.desenhar()
+
+    elif estado_jogo == "CREDITOS":
+        screen.blit(background_img, (0, 0))
+        tela_creditos.update()
+        tela_creditos.desenhar()
 
     # 4. Flip ──────────────────────────────────────────────────────────────────
     pygame.display.update()
