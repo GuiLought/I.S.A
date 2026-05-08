@@ -4,6 +4,7 @@ import constants
 from src.character import Character
 from src.buttons import Botao
 from src.world import World
+from src.configuracoes import MenuConfiguracoes
 from pygame import mixer
 from src.utils import carregar_imagem, carregar_tile, carregar_fonte, carregar_nivel_csv
 
@@ -16,7 +17,7 @@ pygame.display.set_caption("I.S.A - Projeto QA")
 clock = pygame.time.Clock()
 
 # ── Estados possíveis ─────────────────────────────────────────────────────────
-# "MENU" | "JOGANDO" | "PAUSADO" | "GAME_OVER"
+# "MENU" | "JOGANDO" | "PAUSADO" | "GAME_OVER" | "CONFIGURACOES"
 estado_jogo = "MENU"
 
 # ── Recursos permanentes (carregados uma vez) ─────────────────────────────────
@@ -129,9 +130,11 @@ def encerrar_jogo():
     pygame.quit()
     sys.exit()
 
+
 def configurar_jogo():
-    # Placeholder para futuras configurações
-    pass
+    global estado_jogo
+    estado_jogo = "CONFIGURACOES"
+
 
 def retomar_jogo():
     global estado_jogo
@@ -158,7 +161,7 @@ botoes_menu = [
     ),
     Botao(
         "SAIR",
-        600,
+        580,
         500,
         constants.BTN_LARGURA,
         constants.BTN_ALTURA,
@@ -166,11 +169,11 @@ botoes_menu = [
     ),
     Botao(
         "CONFIGURAÇÕES",
-        600,
         20,
+        500 ,
         constants.BTN_LARGURA,
         constants.BTN_ALTURA,
-        
+        configurar_jogo,
     ),
 ]
 
@@ -202,6 +205,14 @@ botoes_game_over = [
     ),
 ]
 
+# ── Menu de Configurações ─────────────────────────────────────────────────────
+menu_cfg = MenuConfiguracoes(
+    screen,
+    constants.SCREEN_WIDTH,
+    constants.SCREEN_HEIGHT,
+    callback_voltar=voltar_menu,
+    callback_creditos=None,  # implemente depois
+)
 
 # ── Loop principal ────────────────────────────────────────────────────────────
 run = True
@@ -243,6 +254,11 @@ while run:
         elif estado_jogo == "GAME_OVER":
             for botao in botoes_game_over:
                 botao.verificar_click(event)
+
+        elif estado_jogo == "CONFIGURACOES":
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                estado_jogo = "MENU"
+            menu_cfg.handle_event(event)
 
     # 2. Atualização ───────────────────────────────────────────────────────────
     if estado_jogo == "JOGANDO" and player:
@@ -305,6 +321,10 @@ while run:
 
         for botao in botoes_game_over:
             botao.desenhar(screen, mouse_pos)
+
+    elif estado_jogo == "CONFIGURACOES":
+        screen.blit(background_img, (0, 0))
+        menu_cfg.desenhar()
 
     # 4. Flip ──────────────────────────────────────────────────────────────────
     pygame.display.update()
