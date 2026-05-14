@@ -83,7 +83,7 @@ def carregar_recursos_jogo():
     world = World()
     world.process_data(world_data, tile_list)
 
-    player_image = carregar_imagem("personagens", "link-teste.png")
+    player_image = carregar_imagem("personagens", "areninha_ISA.png")
     player = Character(
         constants.PLAYER_START_X,
         constants.PLAYER_START_Y,
