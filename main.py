@@ -2,12 +2,13 @@ import pygame
 import sys
 import constants
 from src.character import Character
-from src.buttons import Botao
+from src.buttons import Botao, BotaoConfig, BotaoSair
 from src.world import World
+from src.enemies.enemy import Enemy
 from src.configuracoes import MenuConfiguracoes
 from src.creditos import TelaCreditos
 from pygame import mixer
-from src.utils import carregar_imagem, carregar_tile, carregar_fonte, carregar_nivel_csv
+from utils import carregar_imagem, carregar_tile, carregar_fonte, carregar_nivel_csv
 
 # ── Inicialização ─────────────────────────────────────────────────────────────
 mixer.init()
@@ -25,12 +26,44 @@ estado_jogo = "MENU"
 background_img = carregar_imagem(
     "tela_menu", "Tela_Menu_Principal.jpg", (constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT)
 )
-fonte_ui = carregar_fonte("upheavtt.ttf", 28)
+fonte_ui     = carregar_fonte("upheavtt.ttf", 28)
 fonte_titulo = carregar_fonte("upheavtt.ttf", 18)
 
+# ── Paralaxe (fundo do modo de jogo) ─────────────────────────────────────────
+def _carregar_paralaxe_img(nome):
+    img = carregar_imagem("backgrounds", nome)
+    return pygame.transform.scale(img, (img.get_width(), constants.SCREEN_HEIGHT))
+
+paralaxe_c1 = _carregar_paralaxe_img("C1.png")
+paralaxe_c2 = _carregar_paralaxe_img("C2.png")
+VEL_C1    = 4
+VEL_C2    = 1
+offset_c1 = 0
+offset_c2 = 0
+
+def desenhar_paralaxe(dx=0):
+    global offset_c1, offset_c2
+
+    if dx != 0:
+        offset_c1 -= VEL_C1 if dx > 0 else -VEL_C1
+        offset_c2 -= VEL_C2 if dx > 0 else -VEL_C2
+
+    screen.fill((0, 0, 0))
+
+    larg_c2 = paralaxe_c2.get_width()
+    off_c2  = offset_c2 % larg_c2
+    for x in range(-larg_c2, constants.SCREEN_WIDTH, larg_c2):
+        screen.blit(paralaxe_c2, (x + off_c2, 0))
+
+    larg_c1 = paralaxe_c1.get_width()
+    off_c1  = offset_c1 % larg_c1
+    for x in range(-larg_c1, constants.SCREEN_WIDTH, larg_c1):
+        screen.blit(paralaxe_c1, (x + off_c1, 0))
+
 # ── Variáveis de jogo ─────────────────────────────────────────────────────────
-player = None
-world = None
+player   = None
+world    = None
+enemies  = []
 camera_x = 0
 camera_y = 0
 moving_left = moving_right = False
@@ -39,11 +72,11 @@ jump_pressed = False
 
 # ── Carregamento do nível ─────────────────────────────────────────────────────
 def carregar_recursos_jogo():
-    global player, world, camera_x, camera_y
+    global player, world, enemies, camera_x, camera_y
     global moving_left, moving_right, jump_pressed
 
     tile_surface = carregar_tile("tile_brick.png", constants.TILE_SIZE)
-    tile_list = [tile_surface] * constants.TILE_TYPES
+    tile_list    = [tile_surface] * constants.TILE_TYPES
 
     world_data = carregar_nivel_csv("level1_data.csv")
 
@@ -57,7 +90,16 @@ def carregar_recursos_jogo():
         constants.PLAYER_SIZE,
         constants.PLAYER_SPEED,
         player_image,
+        constants.PLAYER_HEALTH,
     )
+
+    # Inimigo posicionado no mesmo chão que o player, mais à direita
+    enemies = [
+        Enemy(
+            x=constants.PLAYER_START_X + 300,
+            y=constants.PLAYER_START_Y,
+        )
+    ]
 
     camera_x = camera_y = 0
     moving_left = moving_right = jump_pressed = False
@@ -67,7 +109,7 @@ def carregar_recursos_jogo():
 def atualizar_camera():
     global camera_x, camera_y
 
-    target_x = player.rect.centerx - constants.SCREEN_WIDTH // 2
+    target_x = player.rect.centerx - constants.SCREEN_WIDTH  // 2
     target_y = player.rect.centery - constants.SCREEN_HEIGHT // 2
 
     map_w = constants.MAP_COLS * constants.TILE_SIZE
@@ -81,23 +123,15 @@ def atualizar_camera():
 def draw_grid():
     for x in range(constants.SCREEN_WIDTH // constants.TILE_SIZE + 1):
         pygame.draw.line(
-            screen,
-            constants.WHITE,
+            screen, constants.WHITE,
             (x * constants.TILE_SIZE - camera_x % constants.TILE_SIZE, 0),
-            (
-                x * constants.TILE_SIZE - camera_x % constants.TILE_SIZE,
-                constants.SCREEN_HEIGHT,
-            ),
+            (x * constants.TILE_SIZE - camera_x % constants.TILE_SIZE, constants.SCREEN_HEIGHT),
         )
     for y in range(constants.SCREEN_HEIGHT // constants.TILE_SIZE + 1):
         pygame.draw.line(
-            screen,
-            constants.WHITE,
+            screen, constants.WHITE,
             (0, y * constants.TILE_SIZE - camera_y % constants.TILE_SIZE),
-            (
-                constants.SCREEN_WIDTH,
-                y * constants.TILE_SIZE - camera_y % constants.TILE_SIZE,
-            ),
+            (constants.SCREEN_WIDTH, y * constants.TILE_SIZE - camera_y % constants.TILE_SIZE),
         )
 
 
@@ -143,8 +177,9 @@ def retomar_jogo():
 
 
 def voltar_menu():
-    global estado_jogo, player, world
+    global estado_jogo, player, world, enemies
     player = world = None
+    enemies = []
     estado_jogo = "MENU"
 
 
@@ -157,61 +192,22 @@ def abrir_creditos():
 x_central = (constants.SCREEN_WIDTH // 2) - (constants.BTN_LARGURA // 2)
 
 botoes_menu = [
-    Botao(
-        "JOGAR",
-        300,
-        500,
-        constants.BTN_LARGURA,
-        constants.BTN_ALTURA,
-        iniciar_jogo,
-    ),
-    Botao(
-        "SAIR",
-        580,
-        500,
-        constants.BTN_LARGURA,
-        constants.BTN_ALTURA,
-        encerrar_jogo,
-    ),
-    Botao(
-        "CONFIGURAÇÕES",
-        20,
-        500,
-        constants.BTN_LARGURA,
-        constants.BTN_ALTURA,
-        configurar_jogo,
-    ),
+    Botao("JOGAR", 300, 500, constants.BTN_LARGURA, constants.BTN_ALTURA, iniciar_jogo),
+    BotaoSair(cx=700, cy=38, raio=30, acao=encerrar_jogo),
+    BotaoConfig(cx=762, cy=38, raio=30, acao=configurar_jogo),
 ]
 
 botoes_pausa = [
-    Botao(
-        "RETOMAR",
-        x_central,
-        220,
-        constants.BTN_LARGURA,
-        constants.BTN_ALTURA,
-        retomar_jogo,
-    ),
-    Botao(
-        "MENU", x_central, 310, constants.BTN_LARGURA, constants.BTN_ALTURA, voltar_menu
-    ),
+    Botao("RETOMAR", x_central, 220, constants.BTN_LARGURA, constants.BTN_ALTURA, retomar_jogo),
+    Botao("MENU",    x_central, 310, constants.BTN_LARGURA, constants.BTN_ALTURA, voltar_menu),
 ]
 
 botoes_game_over = [
-    Botao(
-        "REINICIAR",
-        x_central,
-        280,
-        constants.BTN_LARGURA,
-        constants.BTN_ALTURA,
-        iniciar_jogo,
-    ),
-    Botao(
-        "MENU", x_central, 360, constants.BTN_LARGURA, constants.BTN_ALTURA, voltar_menu
-    ),
+    Botao("REINICIAR", x_central, 280, constants.BTN_LARGURA, constants.BTN_ALTURA, iniciar_jogo),
+    Botao("MENU",      x_central, 360, constants.BTN_LARGURA, constants.BTN_ALTURA, voltar_menu),
 ]
 
-# ── Menu de Configurações e Créditos ─────────────────────────────────────────
+# ── Menu de Configurações e Créditos (do I.S.A-main) ─────────────────────────
 menu_cfg = MenuConfiguracoes(
     screen,
     constants.SCREEN_WIDTH,
@@ -286,7 +282,14 @@ while run:
         player.move(dx, world.obstacles if world else [])
         atualizar_camera()
 
-        if player.rect.top > constants.MAP_ROWS * constants.TILE_SIZE:
+        player.update_invulnerable()
+
+        # Atualiza inimigos
+        for enemy in enemies:
+            enemy.update(world.obstacles if world else [])
+            enemy.check_player_collision(player)
+
+        if not player.alive or player.rect.top > constants.MAP_ROWS * constants.TILE_SIZE:
             estado_jogo = "GAME_OVER"
 
     # 3. Renderização ──────────────────────────────────────────────────────────
@@ -298,16 +301,31 @@ while run:
             botao.desenhar(screen, mouse_pos)
 
     elif estado_jogo in ("JOGANDO", "PAUSADO"):
-        screen.blit(background_img, (0, 0))
+        dx = (moving_right - moving_left) * constants.PLAYER_SPEED
+        desenhar_paralaxe(dx)
+
         if world:
             world.render(screen, camera_x, camera_y)
         if constants.DEBUG:
             draw_grid()
+
+        for enemy in enemies:
+            enemy.draw(screen, camera_x, camera_y)
+
         if player:
             player.draw(screen, camera_x, camera_y)
 
         hint = fonte_titulo.render("ESC = Pausa", True, constants.WHITE)
         screen.blit(hint, (10, 10))
+
+        # ── Barra de vida ─────────────────────────────────────────────────────
+        if player:
+            BAR_W, BAR_H = 200, 18
+            BAR_X, BAR_Y = 10, 35
+            proporcao = max(0, player.player_health / constants.PLAYER_HEALTH)
+            pygame.draw.rect(screen, constants.RED,   (BAR_X, BAR_Y, BAR_W, BAR_H), border_radius=4)
+            pygame.draw.rect(screen, constants.GREEN, (BAR_X, BAR_Y, int(BAR_W * proporcao), BAR_H), border_radius=4)
+            pygame.draw.rect(screen, constants.WHITE, (BAR_X, BAR_Y, BAR_W, BAR_H), 2, border_radius=4)
 
         if estado_jogo == "PAUSADO":
             overlay = pygame.Surface(

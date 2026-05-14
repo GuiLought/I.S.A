@@ -11,11 +11,13 @@ PLAYER_START_Y = 80
 PLAYER_SIZE    = 75
 PLAYER_SPEED   = 5
 SPEED_JUMP     = 12   # pixels/frame (positivo, aplicado para cima)
+PLAYER_HEALTH  = 80
+DAMAGE         = 15
 
 # ── Botões ────────────────────────────────────────────────────────────────────
 BTN_LARGURA = 200
 BTN_ALTURA  = 60
-    
+
 # ── Mundo ─────────────────────────────────────────────────────────────────────
 SCALE      = 5
 TILE_SIZE  = 16 * SCALE   # 80 px
