@@ -5,7 +5,8 @@ import pygame
 
 # Suporte a executável empacotado (PyInstaller)
 if getattr(sys, 'frozen', False):
-    ROOT = Path(sys.executable).parent
+    ROOT = Path(getattr(sys, '_MEIPASS', Path(sys.executable).parent))
+
 else:
     ROOT = Path(__file__).parent
 
