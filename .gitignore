@@ -1,0 +1,28 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv/
+venv/
+ENV/
+env/
+
+# --- Bancos de dados e Dados locais ---
+# (Remova a linha abaixo se você REALMENTE precisar enviar seu banco .csv para o GitHub)
+# *.csv
+
+# --- Sistema Operacional (Windows) ---
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# --- Ambientes de Desenvolvimento (VS Code) ---
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp

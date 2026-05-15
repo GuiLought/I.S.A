@@ -74,14 +74,17 @@ jump_pressed = False
 perguntas = []
 pontuacao = 0
 indice = 0
+quiz_mensagem = ""
+quiz_timer = 0
+item_para_remover = None  # Para rastrear qual item remover após o quiz
 
-# ── Carregamento do nível ─────────────────────────────────────────────────────
+# ── Carregamento das perguntas ────────────────────────────────────────────────
 perguntas = carregar_perguntas_csv("perguntas.csv")
 
 # ── Carregamento do nível ─────────────────────────────────────────────────────
 def carregar_recursos_jogo():
     global player, world, enemies, itens, camera_x, camera_y
-    global moving_left, moving_right, jump_pressed
+    global moving_left, moving_right, jump_pressed, pontuacao, indice, quiz_mensagem, quiz_timer, item_para_remover
 
     tile_surface = carregar_tile("tile_brick.png", constants.TILE_SIZE)
     tile_list    = [tile_surface] * constants.TILE_TYPES
@@ -91,12 +94,13 @@ def carregar_recursos_jogo():
     world = World()
     world.process_data(world_data, tile_list)
     
-    #Sprite inimigo
+    # Sprite inimigo
+    
     enemies_image = carregar_imagem("personagens","tronco 2.png")
     enemies_image = pygame.transform.scale(enemies_image, (constants.TILE_SIZE, constants.TILE_SIZE))
     
     
-    #Sprite Player
+    # Sprite Player
     player_image = carregar_imagem("personagens", "link-teste.png")
     player = Character(
         constants.PLAYER_START_X,
@@ -117,11 +121,16 @@ def carregar_recursos_jogo():
 
     itens = [
         minerio_cobre("m_minerio.png", x=600, y=constants.PLAYER_START_Y, tamanho=(40, 40)),
-        minerio_cobre("m_minerio.png", x=900, y=constants.PLAYER_START_Y),
+        minerio_cobre("m_minerio.png", x=900, y=constants.PLAYER_START_Y, tamanho=(40, 40)),
     ]
 
     camera_x = camera_y = 0
     moving_left = moving_right = jump_pressed = False
+    pontuacao = 0
+    indice = 0
+    quiz_mensagem = ""
+    quiz_timer = 0
+    item_para_remover = None
 
 # ── Câmera ────────────────────────────────────────────────────────────────────
 def atualizar_camera():
@@ -136,9 +145,9 @@ def atualizar_camera():
     camera_x = max(0, min(target_x, map_w - constants.SCREEN_WIDTH))
     camera_y = max(0, min(target_y, map_h - constants.SCREEN_HEIGHT))
 
-# ── Perguntas ─────────────────────────────────────────────────────
+# ── Perguntas ─────────────────────────────────────────────────────────────────
 def desenhar_pergunta(pergunta):
-    screen.fill(0,0,0)
+    screen.fill((0, 0, 0))  # CORRIGIDO: adicionados parênteses extras
 
     textos = [
         pergunta["pergunta"],
@@ -150,12 +159,10 @@ def desenhar_pergunta(pergunta):
     ]
 
     y = 100
-    for textos in textos:
-        render = fonte_ui.render(textos, True, constants.WHITE)
-        screen.blit(render, (50,y))
+    for texto in textos:  # CORRIGIDO: variável renomeada para não conflitar
+        render = fonte_ui.render(texto, True, constants.WHITE)
+        screen.blit(render, (50, y))
         y += 50
-
-        pygame.display.flip()
 
 # ── Debug grid ────────────────────────────────────────────────────────────────
 def draw_grid():
@@ -245,7 +252,7 @@ botoes_game_over = [
     Botao("MENU",      x_central, 360, constants.BTN_LARGURA, constants.BTN_ALTURA, voltar_menu),
 ]
 
-# ── Menu de Configurações e Créditos (do I.S.A-main) ─────────────────────────
+# ── Menu de Configurações e Créditos ─────────────────────────────────────────
 menu_cfg = MenuConfiguracoes(
     screen,
     constants.SCREEN_WIDTH,
@@ -266,6 +273,12 @@ run = True
 while run:
     clock.tick(constants.FPS)
     mouse_pos = pygame.mouse.get_pos()
+
+    # Atualizar timer do quiz
+    if quiz_timer > 0:
+        quiz_timer -= 1
+        if quiz_timer == 0:
+            quiz_mensagem = ""
 
     # 1. Eventos ───────────────────────────────────────────────────────────────
     for event in pygame.event.get():
@@ -295,26 +308,41 @@ while run:
         elif estado_jogo == "QUIZ":
             resposta = None
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_1 : resposta = "A"
-                elif event.key == pygame.K_2 : resposta = "B"
-                elif event.key == pygame.K_3 : resposta = "C"
-                elif event.key == pygame.K_4 : resposta = "D"
-                elif event.key == pygame.K_5 : resposta = "E"
+                if event.key == pygame.K_1:
+                    resposta = "A"
+                elif event.key == pygame.K_2:
+                    resposta = "B"
+                elif event.key == pygame.K_3:
+                    resposta = "C"
+                elif event.key == pygame.K_4:
+                    resposta = "D"
+                elif event.key == pygame.K_5:
+                    resposta = "E"
+                elif event.key == pygame.K_ESCAPE:
+                    # Sair do quiz sem responder (voltar ao jogo)
+                    estado_jogo = "JOGANDO"
 
-            if event.type == pygame.K_p:
-                estado_jogo = "QUIZ "
-
-            if resposta:
-               if resposta == perguntas[indice]["resposta"]:
-                   pontuacao += 1
-                   mensagem = "ACERTOU!!!"
-               else:
-                   mensagem = "ERROU!!!"
-
-            render = fonte_ui.render(mensagem, True,constants.YELLOW)
-            screen.blit(render, (50, 500))
-            pygame.display.flip()
-            pygame.time.delay(1000)
+            if resposta and indice < len(perguntas):
+                if resposta == perguntas[indice]["resposta"]:
+                    pontuacao += 1
+                    quiz_mensagem = "ACERTOU!!!"
+                else:
+                    quiz_mensagem = f"ERROU!!! A resposta correta era {perguntas[indice]['resposta']}"
+                
+                quiz_timer = 60  # Mostrar mensagem por 1 segundo (60 frames)
+                indice += 1
+                
+                # Verificar se acabaram as perguntas
+                if indice >= len(perguntas):
+                    # Voltar para o jogo
+                    estado_jogo = "JOGANDO"
+                    # Remover o item coletado
+                    if item_para_remover and item_para_remover in itens:
+                        itens.remove(item_para_remover)
+                    item_para_remover = None
+                    # Dar recompensa ao jogador
+                    if player:
+                        player.player_health = min(player.player_health + 20, constants.PLAYER_HEALTH)
 
         elif estado_jogo == "PAUSADO":
             if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -350,10 +378,13 @@ while run:
             enemy.update(world.obstacles if world else [])
             enemy.check_player_collision(player)
 
-        for minerio_cobre in itens:
-            if minerio_cobre.verificar_coleta(player):
+        # Verificar coleta de itens
+        for item in itens[:]:  # Usar cópia da lista
+            if item.verificar_coleta(player):
                 estado_jogo = "QUIZ"
                 indice = 0
+                item_para_remover = item
+                break  # Sair do loop após encontrar um item
 
         if not player.alive or player.rect.top > constants.MAP_ROWS * constants.TILE_SIZE:
             estado_jogo = "GAME_OVER"
@@ -378,25 +409,26 @@ while run:
         for enemy in enemies:
             enemy.draw(screen, camera_x, camera_y)
 
-        for minerio_cobre in itens:
-            minerio_cobre.draw(screen, camera_x, camera_y)
+        for item in itens:
+            item.draw(screen, camera_x, camera_y)
 
         if player:
             player.draw(screen, camera_x, camera_y)
-
-        hint = fonte_titulo.render("ESC = Pausa", True, constants.WHITE)
-        screen.blit(hint, (10, 10))
-
-    elif estado_jogo == "QUIZ":
-        desenhar_pergunta(perguntas[indice])
-
-        if player:
+            
+            # Desenhar barra de vida
             BAR_W, BAR_H = 200, 18
-            BAR_X, BAR_Y = 10, 35
+            BAR_X, BAR_Y = 10, 10
             proporcao = max(0, player.player_health / constants.PLAYER_HEALTH)
-            pygame.draw.rect(screen, constants.RED,   (BAR_X, BAR_Y, BAR_W, BAR_H), border_radius=4)
+            pygame.draw.rect(screen, constants.RED, (BAR_X, BAR_Y, BAR_W, BAR_H), border_radius=4)
             pygame.draw.rect(screen, constants.GREEN, (BAR_X, BAR_Y, int(BAR_W * proporcao), BAR_H), border_radius=4)
             pygame.draw.rect(screen, constants.WHITE, (BAR_X, BAR_Y, BAR_W, BAR_H), 2, border_radius=4)
+            
+            # Desenhar pontuação
+            score_surf = fonte_ui.render(f"Pontos: {pontuacao}", True, constants.WHITE)
+            screen.blit(score_surf, (constants.SCREEN_WIDTH - 150, 10))
+
+        hint = fonte_titulo.render("ESC = Pausa", True, constants.WHITE)
+        screen.blit(hint, (10, 40))
 
         if estado_jogo == "PAUSADO":
             overlay = pygame.Surface(
@@ -412,6 +444,36 @@ while run:
             for botao in botoes_pausa:
                 botao.desenhar(screen, mouse_pos)
 
+    elif estado_jogo == "QUIZ":
+        if indice < len(perguntas):
+            desenhar_pergunta(perguntas[indice])
+            
+            # Desenhar mensagem de feedback
+            if quiz_mensagem:
+                surf = fonte_ui.render(quiz_mensagem, True, constants.YELLOW)
+                screen.blit(surf, (50, 500))
+            
+            # Desenhar instruções
+            instrucao = fonte_titulo.render("Pressione 1,2,3,4,5 para responder | ESC para sair", True, constants.WHITE)
+            screen.blit(instrucao, (50, constants.SCREEN_HEIGHT - 50))
+            
+            # Desenhar pontuação
+            score_surf = fonte_ui.render(f"Pontuação: {pontuacao}/{len(perguntas)}", True, constants.WHITE)
+            screen.blit(score_surf, (constants.SCREEN_WIDTH - 250, 50))
+            
+            # Desenhar barra de progresso
+            PROG_W = constants.SCREEN_WIDTH - 100
+            PROG_H = 20
+            PROG_X = 50
+            PROG_Y = 30
+            proporcao = indice / len(perguntas)
+            pygame.draw.rect(screen, constants.GRAY, (PROG_X, PROG_Y, PROG_W, PROG_H), border_radius=10)
+            pygame.draw.rect(screen, constants.GREEN, (PROG_X, PROG_Y, int(PROG_W * proporcao), PROG_H), border_radius=10)
+            pygame.draw.rect(screen, constants.WHITE, (PROG_X, PROG_Y, PROG_W, PROG_H), 2, border_radius=10)
+        else:
+            # Caso algo dê errado, voltar ao jogo
+            estado_jogo = "JOGANDO"
+
     elif estado_jogo == "GAME_OVER":
         screen.blit(background_img, (0, 0))
         overlay = pygame.Surface(
@@ -420,9 +482,14 @@ while run:
         overlay.fill((0, 0, 0, 160))
         screen.blit(overlay, (0, 0))
 
-        surf = fonte_ui.render("GAME  OVER", True, constants.RED)
+        surf = fonte_ui.render("GAME OVER", True, constants.RED)
         rect = surf.get_rect(center=(constants.SCREEN_WIDTH // 2, 180))
         screen.blit(surf, rect)
+        
+        # Mostrar pontuação final
+        score_surf = fonte_ui.render(f"Pontuação Final: {pontuacao}", True, constants.YELLOW)
+        score_rect = score_surf.get_rect(center=(constants.SCREEN_WIDTH // 2, 240))
+        screen.blit(score_surf, score_rect)
 
         for botao in botoes_game_over:
             botao.desenhar(screen, mouse_pos)

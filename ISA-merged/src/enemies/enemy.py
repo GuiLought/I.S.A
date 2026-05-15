@@ -15,7 +15,7 @@ class Enemy:
     COR_BORDA    = (120, 0, 0)
     LARGURA      = 50
     ALTURA       = 50
-    RAIO         = 25
+    RAIO         =25
     VELOCIDADE   = 2
     ALCANCE      = 150               # pixels de patrulha para cada lado
 
@@ -102,6 +102,5 @@ class Enemy:
 
     # ── Renderização ─────────────────────────────────────────────────────────
     def draw(self, surface, camera_x, camera_y):
-        draw_circle = self.rect.move(-camera_x, -camera_y)
         draw_circle = self.rect.move(-camera_x, -camera_y)
         surface.blit(self.image, draw_circle)
