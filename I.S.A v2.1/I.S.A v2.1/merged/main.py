@@ -119,7 +119,7 @@ def desenhar_paralaxe(camera_x=0):
         screen.blit(paralaxe_c1, (x + off_c1, 0))
 
 # ── TELA DE PERGUNTA COM LAYOUT MELHORADO ─────────────────────────────────────
-def desenhar_pergunta_melhorado(screen, pergunta, pontuacao, indice, total, mensagem="", tempo_msg=0):
+def desenhar_pergunta_melhorado(screen, pergunta, pontuacao, indice, total, mensagem="", tempo_msg=0, resposta_usuario=None, gabarito=None, scroll=0):
     W = constants.SCREEN_WIDTH
     H = constants.SCREEN_HEIGHT
     
@@ -176,9 +176,32 @@ def desenhar_pergunta_melhorado(screen, pergunta, pontuacao, indice, total, mens
     # Linha separadora
     separador_y = prog_y + 55
     pygame.draw.line(screen, CORES['titulo'], (box_x + 25, separador_y), (box_x + box_w - 25, separador_y), 2)
-    
-    # Pergunta (com quebra de linha)
-    texto_pergunta = pergunta.get('pergunta', 'Pergunta não disponível')[:300]
+
+    # Alternativas (altura fixa na parte de baixo)
+    opcoes = []
+    chaves = ['opcao_a', 'opcao_b', 'opcao_c', 'opcao_d', 'opcao_e']
+    chaves_acento = ['opçao_a', 'opçao_b', 'opçao_c', 'opçao_d', 'opçao_e']
+    letras = ['A', 'B', 'C', 'D', 'E']
+    for i, chave in enumerate(chaves):
+        texto = pergunta.get(chave, '')
+        if not texto and i < len(chaves_acento):
+            texto = pergunta.get(chaves_acento[i], '')
+        if texto and len(str(texto)) > 1:
+            opcoes.append((letras[i], str(texto)[:120]))
+    if not opcoes:
+        opcoes = [('A', 'Alternativa A'), ('B', 'Alternativa B'), ('C', 'Alternativa C')]
+
+    alt_h = 48
+    inst_h = 40
+    alts_total_h = len(opcoes[:5]) * alt_h + inst_h
+    area_scroll_bottom = box_y + box_h - alts_total_h - 10
+
+    # Área de scroll da pergunta (clip)
+    area_perg_y = separador_y + 5
+    area_perg_h = area_scroll_bottom - area_perg_y - 10
+    clip_rect = pygame.Rect(box_x + 20, area_perg_y, box_w - 40, area_perg_h)
+    screen.set_clip(clip_rect)
+
     fonte_perg = carregar_fonte("upheavtt.ttf", sf(18))
     def quebrar_texto(texto, fonte, larg_max):
         palavras = texto.split()
@@ -195,37 +218,63 @@ def desenhar_pergunta_melhorado(screen, pergunta, pontuacao, indice, total, mens
         if linha:
             linhas.append(linha)
         return linhas if linhas else [texto[:60]]
-    
+
+    texto_pergunta = pergunta.get('pergunta', 'Pergunta não disponível')
     larg_max_perg = box_w - 60
     linhas_perg = quebrar_texto(texto_pergunta, fonte_perg, larg_max_perg)
-    y_perg = separador_y + 20
-    for i, linha in enumerate(linhas_perg[:5]):
-        render = fonte_perg.render(linha, True, CORES['texto'])
-        screen.blit(render, (box_x + 30, y_perg + i * 30))
-    
+    linha_h = 30
+    max_scroll = max(0, len(linhas_perg) * linha_h - area_perg_h)
+    scroll_atual = min(scroll * linha_h, max_scroll)
+
+    y_perg = area_perg_y + 10 - scroll_atual
+    for linha in linhas_perg:
+        if y_perg + linha_h > area_perg_y and y_perg < area_perg_y + area_perg_h:
+            render = fonte_perg.render(linha, True, CORES['texto'])
+            screen.blit(render, (box_x + 30, y_perg))
+        y_perg += linha_h
+
+    screen.set_clip(None)
+
+    # Indicador de scroll se houver mais conteúdo
+    if max_scroll > 0:
+        fonte_scroll = carregar_fonte("upheavtt.ttf", sf(13))
+        if scroll_atual < max_scroll:
+            hint = fonte_scroll.render("▼ scroll para ver mais", True, CORES['cinza'])
+            screen.blit(hint, (box_x + box_w - hint.get_width() - 25, area_scroll_bottom - 18))
+        if scroll_atual > 0:
+            hint_up = fonte_scroll.render("▲", True, CORES['cinza'])
+            screen.blit(hint_up, (box_x + box_w - hint_up.get_width() - 25, area_perg_y + 5))
+
+    # Linha separadora antes das alternativas
+    pygame.draw.line(screen, CORES['titulo'], (box_x + 25, area_scroll_bottom), (box_x + box_w - 25, area_scroll_bottom), 1)
+
     # Alternativas
-    opcoes = []
-    chaves = ['opcao_a', 'opcao_b', 'opcao_c', 'opcao_d', 'opcao_e']
-    chaves_acento = ['opçao_a', 'opçao_b', 'opçao_c', 'opçao_d', 'opçao_e']
-    letras = ['A', 'B', 'C', 'D', 'E']
-    for i, chave in enumerate(chaves):
-        texto = pergunta.get(chave, '')
-        if not texto and i < len(chaves_acento):
-            texto = pergunta.get(chaves_acento[i], '')
-        if texto and len(str(texto)) > 1:
-            opcoes.append((letras[i], str(texto)[:120]))
-    if not opcoes:
-        opcoes = [('A', 'Alternativa A'), ('B', 'Alternativa B'), ('C', 'Alternativa C')]
-    
     fonte_alt = carregar_fonte("upheavtt.ttf", sf(16))
-    y_alt = y_perg + min(len(linhas_perg), 5) * 30 + 20
+    y_alt = area_scroll_bottom + 8
     mouse_pos = pygame.mouse.get_pos()
-    
+
     for i, (letra, texto) in enumerate(opcoes[:5]):
         alt_rect = pygame.Rect(box_x + 25, y_alt + i * 48, box_w - 50, 42)
         cor_fundo = CORES['box_alt'] if alt_rect.collidepoint(mouse_pos) else (55, 55, 75)
         pygame.draw.rect(screen, cor_fundo, alt_rect, border_radius=12)
-        pygame.draw.rect(screen, CORES['destaque'], alt_rect, width=1, border_radius=12)
+        # Borda: verde na correta, vermelha na errada (só após responder)
+        if resposta_usuario is not None and gabarito is not None:
+            usuario_lower = resposta_usuario.strip().lower()
+            gabarito_lower = gabarito.strip().lower()
+            acertou = usuario_lower == gabarito_lower
+            if letra.lower() == usuario_lower and acertou:
+                cor_borda_alt = CORES['verde']
+                esp = 3
+            elif letra.lower() == usuario_lower and not acertou:
+                cor_borda_alt = CORES['vermelho']
+                esp = 3
+            else:
+                cor_borda_alt = CORES['destaque']
+                esp = 1
+        else:
+            cor_borda_alt = CORES['destaque']
+            esp = 1
+        pygame.draw.rect(screen, cor_borda_alt, alt_rect, width=esp, border_radius=12)
         # Letra
         letra_rect = pygame.Rect(alt_rect.x + 12, alt_rect.y + 8, 28, 26)
         pygame.draw.rect(screen, CORES['titulo'], letra_rect, border_radius=6)
@@ -237,7 +286,7 @@ def desenhar_pergunta_melhorado(screen, pergunta, pontuacao, indice, total, mens
     
     # Instrução
     fonte_inst = carregar_fonte("upheavtt.ttf", sf(14))
-    instrucao = fonte_inst.render("🔹 1 2 3 4 5 = Responder     🔹 ESC = Voltar", True, CORES['destaque'])
+    instrucao = fonte_inst.render("🔹 A B C D E = Responder   🔹 ↑↓ ou scroll = rolar", True, CORES['destaque'])
     screen.blit(instrucao, instrucao.get_rect(center=(W // 2, box_y + box_h - 25)))
     
     # Mensagem de feedback
@@ -441,6 +490,9 @@ indice            = 0
 quiz_mensagem     = ""
 quiz_timer        = 0
 item_para_remover = None
+quiz_resposta_usuario = None
+quiz_gabarito         = None
+quiz_scroll           = 0
 
 def reiniciar_movimento():
     global moving_left, moving_right, jump_pressed
@@ -579,6 +631,13 @@ if __name__ == "__main__":
             quiz_timer -= 1
             if quiz_timer == 0:
                 quiz_mensagem = ""
+                if quiz_resposta_usuario is not None:
+                    indice += 1
+                    quiz_resposta_usuario = None
+                    quiz_gabarito = None
+                    item_para_remover = None
+                    reiniciar_movimento()
+                    estado_jogo = "JOGANDO"
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -627,32 +686,33 @@ if __name__ == "__main__":
                     if event.key in (pygame.K_a, pygame.K_LEFT): moving_left = False
                     if event.key in (pygame.K_d, pygame.K_RIGHT): moving_right = False
             elif estado_jogo == "QUIZ":
+                resposta = None
                 if event.type == pygame.KEYDOWN:
                     resposta = None
-                    if event.key == pygame.K_1: resposta = 'a'
-                    elif event.key == pygame.K_2: resposta = 'b'
-                    elif event.key == pygame.K_3: resposta = 'c'
-                    elif event.key == pygame.K_4: resposta = 'd'
-                    elif event.key == pygame.K_5: resposta = 'e'
-                    elif event.key == pygame.K_ESCAPE:
-                        estado_jogo = "JOGANDO"
-                        reiniciar_movimento()
-                    if resposta and indice < len(perguntas):
-                        gabarito = perguntas[indice].get("resposta", "").strip().lower()
+                    if quiz_resposta_usuario is None:  # só aceita resposta se ainda não respondeu
+                        if event.key == pygame.K_a: resposta = 'a'
+                        elif event.key == pygame.K_b: resposta = 'b'
+                        elif event.key == pygame.K_c: resposta = 'c'
+                        elif event.key == pygame.K_d: resposta = 'd'
+                        elif event.key == pygame.K_e: resposta = 'e'
+                        elif event.key == pygame.K_UP: quiz_scroll = max(0, quiz_scroll - 1)
+                        elif event.key == pygame.K_DOWN: quiz_scroll += 1
+                if event.type == pygame.MOUSEWHEEL:
+                    quiz_scroll = max(0, quiz_scroll - event.y)
+                if resposta and indice < len(perguntas):
+                        gabarito = (perguntas[indice].get("resposta", "") or perguntas[indice].get("resposta;", "")).strip().lower().rstrip(";")
+                        quiz_resposta_usuario = resposta
+                        quiz_gabarito = gabarito
+                        print(f"DEBUG resposta={repr(resposta)} gabarito={repr(gabarito)} iguais={resposta==gabarito}")
                         if resposta == gabarito:
                             pontuacao += 1
                             quiz_mensagem = " ACERTOU! +20 de vida"
                             if player and player.alive:
                                 player.player_health = min(player.player_health + 20, constants.PLAYER_HEALTH)
                         else:
-                            quiz_mensagem = f" ERROU! Resposta: {gabarito.upper()}"
+                            quiz_mensagem = " ERROU!"
                         quiz_timer = 90
-                        indice += 1
-                        reiniciar_movimento()
-                        if item_para_remover and item_para_remover in itens:
-                            itens.remove(item_para_remover)
-                        item_para_remover = None
-                        estado_jogo = "JOGANDO"
+                        estado_jogo = "QUIZ"  # garante que fica na tela de quiz durante o feedback
             elif estado_jogo == "PAUSADO":
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     estado_jogo = "JOGANDO"
@@ -691,9 +751,12 @@ if __name__ == "__main__":
                 enemy.check_player_collision(player)
             for item in itens[:]:
                 if item.verificar_coleta(player):
-                    estado_jogo = "QUIZ"
-                    reiniciar_movimento()
-                    item_para_remover = item
+                    if item_para_remover is None:  # só ativa quiz se não há quiz pendente
+                        estado_jogo = "QUIZ"
+                        reiniciar_movimento()
+                        item_para_remover = item
+                        itens.remove(item)
+                        quiz_scroll = 0
                     break
             if not player.alive or player.rect.top > constants.MAP_ROWS * constants.TILE_SIZE:
                 estado_jogo = "GAME_OVER"  
@@ -738,7 +801,7 @@ if __name__ == "__main__":
         elif estado_jogo == "QUIZ":
             try:
                 if indice < len(perguntas):
-                    desenhar_pergunta_melhorado(screen, perguntas[indice], pontuacao, indice, len(perguntas), quiz_mensagem, quiz_timer)
+                    desenhar_pergunta_melhorado(screen, perguntas[indice], pontuacao, indice, len(perguntas), quiz_mensagem, quiz_timer, quiz_resposta_usuario, quiz_gabarito, quiz_scroll)
                 else:
                     estado_jogo = "JOGANDO"
             except Exception as e:
