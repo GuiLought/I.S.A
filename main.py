@@ -164,11 +164,11 @@ def desenhar_paralaxe(camera_x=0):
         screen.blit(paralaxe_c1, (x + off_c1, 0))
 
 
-# ── TELA DE PERGUNTA COM LAYOUT MELHORADO (COM SCROLL) ────────────────────────
+# ── TELA DE PERGUNTA COM LAYOUT MELHORADO (SCROLL + CLIQUE NAS ALTERNATIVAS) ──
 def desenhar_pergunta_melhorado(
     screen, pergunta, pontuacao, indice, total, mensagem="", tempo_msg=0
 ):
-    global quiz_scroll, quiz_max_scroll
+    global quiz_scroll, quiz_max_scroll, quiz_alt_rects, quiz_conteudo_rect
 
     W = constants.SCREEN_WIDTH
     H = constants.SCREEN_HEIGHT
@@ -250,6 +250,7 @@ def desenhar_pergunta_melhorado(
     conteudo_rect = pygame.Rect(
         box_x, conteudo_top, box_w, conteudo_bottom - conteudo_top
     )
+    quiz_conteudo_rect = conteudo_rect  # guarda pra checar clique dentro da área visível
 
     # Pergunta (com quebra de linha)
     texto_pergunta = pergunta.get("pergunta", "Pergunta não disponível")[:300]
@@ -314,13 +315,20 @@ def desenhar_pergunta_melhorado(
     y_alt = y_perg + altura_pergunta
     mouse_pos = pygame.mouse.get_pos()
 
+    # Limpa a lista de retângulos clicáveis e recalcula a cada frame
+    quiz_alt_rects = []
+
     for i, (letra, texto) in enumerate(opcoes[:5]):
         alt_rect = pygame.Rect(box_x + 25, y_alt + i * 48, box_w - 50, 42)
-        cor_fundo = (
-            CORES["box_alt"] if alt_rect.collidepoint(mouse_pos) else (55, 55, 75)
-        )
+        # Guarda (letra minúscula, rect) pra detecção de clique no loop de eventos
+        quiz_alt_rects.append((letra.lower(), alt_rect))
+
+        hover = alt_rect.collidepoint(mouse_pos) and conteudo_rect.collidepoint(mouse_pos)
+        cor_fundo = CORES["box_alt"] if hover else (55, 55, 75)
         pygame.draw.rect(screen, cor_fundo, alt_rect, border_radius=12)
-        pygame.draw.rect(screen, CORES["destaque"], alt_rect, width=1, border_radius=12)
+        cor_borda = CORES["verde"] if hover else CORES["destaque"]
+        largura_borda = 2 if hover else 1
+        pygame.draw.rect(screen, cor_borda, alt_rect, width=largura_borda, border_radius=12)
         # Letra
         letra_rect = pygame.Rect(alt_rect.x + 12, alt_rect.y + 8, 28, 26)
         pygame.draw.rect(screen, CORES["titulo"], letra_rect, border_radius=6)
@@ -350,16 +358,15 @@ def desenhar_pergunta_melhorado(
             border_radius=3,
         )
         pygame.draw.rect(
-            screen,
-            CORES["destaque"],
-            (barra_x, barra_y, 5, barra_altura),
-            border_radius=3,
+            screen, CORES["destaque"], (barra_x, barra_y, 5, barra_altura), border_radius=3
         )
 
     # Instrução
     fonte_inst = carregar_fonte("upheavtt.ttf", sf(14))
     instrucao = fonte_inst.render(
-        "1 2 3 4 5 = Responder   |   ESC = Voltar", True, CORES["destaque"]
+        "Clique ou use A B C D E / 1 2 3 4 5 = Responder   |   ESC = Voltar",
+        True,
+        CORES["destaque"],
     )
     screen.blit(instrucao, instrucao.get_rect(center=(W // 2, box_y + box_h - 25)))
 
@@ -579,8 +586,10 @@ indice = 0
 quiz_mensagem = ""
 quiz_timer = 0
 item_para_remover = None
-quiz_scroll = 0  # posição atual do scroll na tela de perguntas
-quiz_max_scroll = 0  # limite máximo de scroll (calculado a cada frame)
+quiz_scroll = 0          # posição atual do scroll na tela de perguntas
+quiz_max_scroll = 0      # limite máximo de scroll (calculado a cada frame)
+quiz_alt_rects = []      # lista de (letra_minuscula, pygame.Rect) das alternativas desenhadas no frame atual
+quiz_conteudo_rect = None  # área visível (recortada) do conteúdo, pra validar cliques
 
 
 def reiniciar_movimento():
@@ -627,6 +636,40 @@ def carregar_perguntas():
 
 
 perguntas = carregar_perguntas()
+
+
+# ── Processa uma resposta (chamada tanto pelo teclado quanto pelo clique) ─────
+def processar_resposta(resposta):
+    global pontuacao, quiz_mensagem, quiz_timer, indice, quiz_scroll
+    global item_para_remover, estado_jogo
+
+    if not resposta or indice >= len(perguntas):
+        return
+
+    gabarito = perguntas[indice].get("resposta", "").strip().lower()
+    if resposta == gabarito:
+        pontuacao += 1
+        quiz_mensagem = "VOCE ACERTOU! +20 de vida"
+        if player and player.alive:
+            player.player_health = min(
+                player.player_health + 20, constants.PLAYER_HEALTH
+            )
+    else:
+        quiz_mensagem = "VOCE ERROU!"
+        if player and player.alive:
+            player.player_health -= constants.DAMAGE
+            if player.player_health <= 0:
+                player.player_health = 0
+                player.alive = False
+
+    quiz_timer = 90
+    indice += 1
+    quiz_scroll = 0  # reseta o scroll pra próxima pergunta
+    reiniciar_movimento()
+    if item_para_remover and item_para_remover in itens:
+        itens.remove(item_para_remover)
+    item_para_remover = None
+    estado_jogo = "QUIZ_FEEDBACK"
 
 
 # ── Carregamento do nível ─────────────────────────────────────────────────────
@@ -782,6 +825,22 @@ if __name__ == "__main__":
         callback_creditos=abrir_creditos,
     )
 
+    # Mapa de teclas de letra -> resposta (além dos números 1-5)
+    TECLAS_LETRA = {
+        pygame.K_a: "a",
+        pygame.K_b: "b",
+        pygame.K_c: "c",
+        pygame.K_d: "d",
+        pygame.K_e: "e",
+    }
+    TECLAS_NUMERO = {
+        pygame.K_1: "a",
+        pygame.K_2: "b",
+        pygame.K_3: "c",
+        pygame.K_4: "d",
+        pygame.K_5: "e",
+    }
+
     run = True
     while run:
         clock.tick(constants.FPS)
@@ -852,43 +911,24 @@ if __name__ == "__main__":
                 if event.type == pygame.MOUSEWHEEL:
                     quiz_scroll -= event.y * 25
                     quiz_scroll = max(0, min(quiz_scroll, quiz_max_scroll))
-                if event.type == pygame.KEYDOWN:
-                    resposta = None
-                    if event.key == pygame.K_1:
-                        resposta = "a"
-                    elif event.key == pygame.K_2:
-                        resposta = "b"
-                    elif event.key == pygame.K_3:
-                        resposta = "c"
-                    elif event.key == pygame.K_4:
-                        resposta = "d"
-                    elif event.key == pygame.K_5:
-                        resposta = "e"
-                    if resposta and indice < len(perguntas):
-                        gabarito = perguntas[indice].get("resposta", "").strip().lower()
-                        if resposta == gabarito:
-                            pontuacao += 1
-                            quiz_mensagem = "VOCE ACERTOU! +20 de vida"
-                            if player and player.alive:
-                                player.player_health = min(
-                                    player.player_health + 20, constants.PLAYER_HEALTH
-                                )
-                        else:
-                            quiz_mensagem = "VOCE ERROU!"
-                            if player and player.alive:
-                                player.player_health -= constants.DAMAGE
-                                if player.player_health <= 0:
-                                    player.player_health = 0
-                                    player.alive = False
 
-                        quiz_timer = 90
-                        indice += 1
-                        quiz_scroll = 0  # reseta o scroll pra próxima pergunta
-                        reiniciar_movimento()
-                        if item_para_remover and item_para_remover in itens:
-                            itens.remove(item_para_remover)
-                        item_para_remover = None
-                        estado_jogo = "QUIZ_FEEDBACK"
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    # Clique numa alternativa: só conta se estiver dentro da
+                    # área visível (recortada) do conteúdo, senão dá pra
+                    # "clicar" numa alternativa escondida pelo scroll.
+                    if quiz_conteudo_rect and quiz_conteudo_rect.collidepoint(event.pos):
+                        for letra, alt_rect in quiz_alt_rects:
+                            if alt_rect.collidepoint(event.pos):
+                                processar_resposta(letra)
+                                break
+
+                elif event.type == pygame.KEYDOWN:
+                    resposta = TECLAS_NUMERO.get(event.key) or TECLAS_LETRA.get(
+                        event.key
+                    )
+                    if resposta:
+                        processar_resposta(resposta)
+
             elif estado_jogo == "PAUSADO":
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                     estado_jogo = "JOGANDO"
