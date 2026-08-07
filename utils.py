@@ -1,6 +1,7 @@
-from pathlib import Path
 import csv
 import sys
+from pathlib import Path
+
 import pygame
 
 # Suporte a executável empacotado (PyInstaller) e execução normal
@@ -27,6 +28,11 @@ def carregar_tile(nome_arquivo, tamanho):
 def carregar_fonte(nome_fonte, tamanho):
     caminho = ASSETS_PATH / "fonts" / nome_fonte
     return pygame.font.Font(str(caminho), tamanho)
+
+
+def carregar_musica(nome_arquivo, pasta_interna="music"):
+    caminho = ASSETS_PATH / pasta_interna / nome_arquivo
+    return str(caminho)
 
 
 def carregar_nivel_csv(nome_arquivo):

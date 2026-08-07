@@ -15,6 +15,7 @@ from src.world import World
 from utils import (
     carregar_fonte,
     carregar_imagem,
+    carregar_musica,
     carregar_nivel_csv,
     carregar_perguntas_csv,
     carregar_tile,
@@ -32,6 +33,29 @@ constants.SCREEN_HEIGHT = BASE_H
 
 # ── Estados possíveis ─────────────────────────────────────────────────────────
 estado_jogo = "MENU"
+
+# ── Controle de música ─────────────────────────────────────────────────────────
+musica_atual = None  # guarda o nome do arquivo tocando, evita recarregar à toa
+VOLUME_NORMAL = 0.5
+VOLUME_QUIZ = 0.15
+
+
+NOME_MUSICA = "8-bit Game Music Loop.wav"  # arquivo dentro de assets/songs/
+
+
+def tocar_musica(nome_arquivo, pasta_interna="songs", volume=VOLUME_NORMAL, fade_ms=800):
+    """Troca a música de fundo em loop, evitando recarregar se já for a mesma faixa."""
+    global musica_atual
+    if nome_arquivo == musica_atual:
+        return
+    try:
+        caminho = carregar_musica(nome_arquivo, pasta_interna)
+        mixer.music.load(caminho)
+        mixer.music.set_volume(volume)
+        mixer.music.play(-1, fade_ms=fade_ms)
+        musica_atual = nome_arquivo
+    except Exception as e:
+        print(f"Erro ao tocar música '{nome_arquivo}': {e}")
 
 
 # ── Escala proporcional ───────────────────────────────────────────────────────
@@ -250,11 +274,13 @@ def desenhar_pergunta_melhorado(
     conteudo_rect = pygame.Rect(
         box_x, conteudo_top, box_w, conteudo_bottom - conteudo_top
     )
-    quiz_conteudo_rect = conteudo_rect  # guarda pra checar clique dentro da área visível
+    quiz_conteudo_rect = (
+        conteudo_rect  # guarda pra checar clique dentro da área visível
+    )
 
     # Pergunta (com quebra de linha)
     texto_pergunta = pergunta.get("pergunta", "Pergunta não disponível")[:300]
-    fonte_perg = carregar_fonte("upheavtt.ttf", sf(18))
+    fonte_perg = carregar_fonte("upheavtt.ttf", sf(16))
 
     def quebrar_texto(texto, fonte, larg_max):
         palavras = texto.split()
@@ -285,7 +311,7 @@ def desenhar_pergunta_melhorado(
         if not texto and i < len(chaves_acento):
             texto = pergunta.get(chaves_acento[i], "")
         if texto and len(str(texto)) > 1:
-            opcoes.append((letras[i], str(texto)[:120]))
+            opcoes.append((letras[i], str(texto)[:220]))
     if not opcoes:
         opcoes = [
             ("A", "Alternativa A"),
@@ -293,9 +319,31 @@ def desenhar_pergunta_melhorado(
             ("C", "Alternativa C"),
         ]
 
+    # Fonte das alternativas (definida aqui pra poder medir a quebra de linha)
+    fonte_alt = carregar_fonte("upheavtt.ttf", sf(15))
+
+    # Quebra o texto de cada alternativa, respeitando a largura da caixinha
+    # (largura da caixa menos o espaço da "bolinha" da letra e a margem direita)
+    larg_max_alt = box_w - 50 - 55 - 20
+    PAD_ALT_TOPO = 10
+    PAD_ALT_BASE = 10
+    ALT_LINHA_H = 20
+    ALT_MIN_H = 42
+    ALT_ESPACAMENTO = 10  # espaço vertical entre uma caixinha e outra
+
+    opcoes_processadas = []  # (letra, [linhas], altura_da_caixinha)
+    for letra, texto in opcoes[:5]:
+        linhas_opcao = quebrar_texto(texto, fonte_alt, larg_max_alt)[:4]  # até 4 linhas
+        altura_opcao = max(
+            ALT_MIN_H, PAD_ALT_TOPO + len(linhas_opcao) * ALT_LINHA_H + PAD_ALT_BASE
+        )
+        opcoes_processadas.append((letra, linhas_opcao, altura_opcao))
+
     # Altura total do conteúdo (pergunta + espaço + alternativas)
-    altura_pergunta = len(linhas_perg[:5]) * 30 + 20
-    altura_alternativas = len(opcoes[:5]) * 48
+    altura_pergunta = len(linhas_perg[:5]) * 26 + 20
+    altura_alternativas = sum(h for _, _, h in opcoes_processadas) + ALT_ESPACAMENTO * max(
+        0, len(opcoes_processadas) - 1
+    )
     altura_total = altura_pergunta + altura_alternativas
 
     # Calcula scroll máximo e aplica clamp na global
@@ -309,34 +357,44 @@ def desenhar_pergunta_melhorado(
     y_perg = conteudo_top - quiz_scroll
     for i, linha in enumerate(linhas_perg[:5]):
         render = fonte_perg.render(linha, True, CORES["texto"])
-        screen.blit(render, (box_x + 30, y_perg + i * 30))
+        screen.blit(render, (box_x + 30, y_perg + i * 26))
 
-    fonte_alt = carregar_fonte("upheavtt.ttf", sf(16))
     y_alt = y_perg + altura_pergunta
     mouse_pos = pygame.mouse.get_pos()
 
     # Limpa a lista de retângulos clicáveis e recalcula a cada frame
     quiz_alt_rects = []
 
-    for i, (letra, texto) in enumerate(opcoes[:5]):
-        alt_rect = pygame.Rect(box_x + 25, y_alt + i * 48, box_w - 50, 42)
+    y_cursor = y_alt
+    for letra, linhas_opcao, altura_opcao in opcoes_processadas:
+        alt_rect = pygame.Rect(box_x + 25, y_cursor, box_w - 50, altura_opcao)
         # Guarda (letra minúscula, rect) pra detecção de clique no loop de eventos
         quiz_alt_rects.append((letra.lower(), alt_rect))
 
-        hover = alt_rect.collidepoint(mouse_pos) and conteudo_rect.collidepoint(mouse_pos)
+        hover = alt_rect.collidepoint(mouse_pos) and conteudo_rect.collidepoint(
+            mouse_pos
+        )
         cor_fundo = CORES["box_alt"] if hover else (55, 55, 75)
         pygame.draw.rect(screen, cor_fundo, alt_rect, border_radius=12)
         cor_borda = CORES["verde"] if hover else CORES["destaque"]
         largura_borda = 2 if hover else 1
-        pygame.draw.rect(screen, cor_borda, alt_rect, width=largura_borda, border_radius=12)
+        pygame.draw.rect(
+            screen, cor_borda, alt_rect, width=largura_borda, border_radius=12
+        )
         # Letra
         letra_rect = pygame.Rect(alt_rect.x + 12, alt_rect.y + 8, 28, 26)
         pygame.draw.rect(screen, CORES["titulo"], letra_rect, border_radius=6)
         letra_surf = fonte_alt.render(letra, True, CORES["bg"])
         screen.blit(letra_surf, (letra_rect.x + 8, letra_rect.y + 4))
-        # Texto
-        texto_render = fonte_alt.render(texto, True, CORES["texto"])
-        screen.blit(texto_render, (alt_rect.x + 55, alt_rect.y + 12))
+        # Texto (uma ou mais linhas, dentro da largura da caixinha)
+        for li, linha_txt in enumerate(linhas_opcao):
+            texto_render = fonte_alt.render(linha_txt, True, CORES["texto"])
+            screen.blit(
+                texto_render,
+                (alt_rect.x + 55, alt_rect.y + PAD_ALT_TOPO + li * ALT_LINHA_H),
+            )
+
+        y_cursor += altura_opcao + ALT_ESPACAMENTO
 
     # Restaura o clip
     screen.set_clip(clip_anterior)
@@ -358,7 +416,10 @@ def desenhar_pergunta_melhorado(
             border_radius=3,
         )
         pygame.draw.rect(
-            screen, CORES["destaque"], (barra_x, barra_y, 5, barra_altura), border_radius=3
+            screen,
+            CORES["destaque"],
+            (barra_x, barra_y, 5, barra_altura),
+            border_radius=3,
         )
 
     # Instrução
@@ -586,9 +647,9 @@ indice = 0
 quiz_mensagem = ""
 quiz_timer = 0
 item_para_remover = None
-quiz_scroll = 0          # posição atual do scroll na tela de perguntas
-quiz_max_scroll = 0      # limite máximo de scroll (calculado a cada frame)
-quiz_alt_rects = []      # lista de (letra_minuscula, pygame.Rect) das alternativas desenhadas no frame atual
+quiz_scroll = 0  # posição atual do scroll na tela de perguntas
+quiz_max_scroll = 0  # limite máximo de scroll (calculado a cada frame)
+quiz_alt_rects = []  # lista de (letra_minuscula, pygame.Rect) das alternativas desenhadas no frame atual
 quiz_conteudo_rect = None  # área visível (recortada) do conteúdo, pra validar cliques
 
 
@@ -670,6 +731,7 @@ def processar_resposta(resposta):
         itens.remove(item_para_remover)
     item_para_remover = None
     estado_jogo = "QUIZ_FEEDBACK"
+    mixer.music.set_volume(VOLUME_NORMAL)  # volta o volume ao normal ao sair do quiz
 
 
 # ── Carregamento do nível ─────────────────────────────────────────────────────
@@ -757,6 +819,7 @@ def iniciar_jogo():
         random.shuffle(perguntas)
     carregar_recursos_jogo()
     estado_jogo = "JOGANDO"
+    tocar_musica(NOME_MUSICA)
 
 
 def encerrar_jogo():
@@ -791,6 +854,7 @@ def voltar_menu():
     enemies = []
     itens = []
     estado_jogo = "MENU"
+    tocar_musica(NOME_MUSICA)
 
 
 def abrir_creditos():
@@ -815,6 +879,7 @@ if __name__ == "__main__":
 
     recriar_ui()
     inicializar_intro()
+    tocar_musica(NOME_MUSICA)  # música inicial, já que o jogo abre no MENU
 
     tela_login = TelaLogin(screen)
     tela_configuracoes = TelaConfiguracoes(
@@ -916,7 +981,9 @@ if __name__ == "__main__":
                     # Clique numa alternativa: só conta se estiver dentro da
                     # área visível (recortada) do conteúdo, senão dá pra
                     # "clicar" numa alternativa escondida pelo scroll.
-                    if quiz_conteudo_rect and quiz_conteudo_rect.collidepoint(event.pos):
+                    if quiz_conteudo_rect and quiz_conteudo_rect.collidepoint(
+                        event.pos
+                    ):
                         for letra, alt_rect in quiz_alt_rects:
                             if alt_rect.collidepoint(event.pos):
                                 processar_resposta(letra)
@@ -973,6 +1040,7 @@ if __name__ == "__main__":
                     estado_jogo = "QUIZ"
                     reiniciar_movimento()
                     item_para_remover = item
+                    mixer.music.set_volume(VOLUME_QUIZ)  # abaixa a música durante o quiz
                     break
             if (
                 not player.alive
