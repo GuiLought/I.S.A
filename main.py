@@ -164,10 +164,12 @@ def desenhar_paralaxe(camera_x=0):
         screen.blit(paralaxe_c1, (x + off_c1, 0))
 
 
-# ── TELA DE PERGUNTA COM LAYOUT MELHORADO ─────────────────────────────────────
+# ── TELA DE PERGUNTA COM LAYOUT MELHORADO (COM SCROLL) ────────────────────────
 def desenhar_pergunta_melhorado(
     screen, pergunta, pontuacao, indice, total, mensagem="", tempo_msg=0
 ):
+    global quiz_scroll, quiz_max_scroll
+
     W = constants.SCREEN_WIDTH
     H = constants.SCREEN_HEIGHT
 
@@ -242,6 +244,13 @@ def desenhar_pergunta_melhorado(
         2,
     )
 
+    # ── Área de conteúdo rolável (pergunta + alternativas) ──────────────────
+    conteudo_top = separador_y + 15
+    conteudo_bottom = box_y + box_h - 50  # deixa espaço pra instrução embaixo
+    conteudo_rect = pygame.Rect(
+        box_x, conteudo_top, box_w, conteudo_bottom - conteudo_top
+    )
+
     # Pergunta (com quebra de linha)
     texto_pergunta = pergunta.get("pergunta", "Pergunta não disponível")[:300]
     fonte_perg = carregar_fonte("upheavtt.ttf", sf(18))
@@ -264,10 +273,6 @@ def desenhar_pergunta_melhorado(
 
     larg_max_perg = box_w - 60
     linhas_perg = quebrar_texto(texto_pergunta, fonte_perg, larg_max_perg)
-    y_perg = separador_y + 20
-    for i, linha in enumerate(linhas_perg[:5]):
-        render = fonte_perg.render(linha, True, CORES["texto"])
-        screen.blit(render, (box_x + 30, y_perg + i * 30))
 
     # Alternativas
     opcoes = []
@@ -287,8 +292,26 @@ def desenhar_pergunta_melhorado(
             ("C", "Alternativa C"),
         ]
 
+    # Altura total do conteúdo (pergunta + espaço + alternativas)
+    altura_pergunta = len(linhas_perg[:5]) * 30 + 20
+    altura_alternativas = len(opcoes[:5]) * 48
+    altura_total = altura_pergunta + altura_alternativas
+
+    # Calcula scroll máximo e aplica clamp na global
+    quiz_max_scroll = max(0, altura_total - conteudo_rect.height)
+    quiz_scroll = max(0, min(quiz_scroll, quiz_max_scroll))
+
+    # Recorta a tela pra não desenhar fora da caixa
+    clip_anterior = screen.get_clip()
+    screen.set_clip(conteudo_rect)
+
+    y_perg = conteudo_top - quiz_scroll
+    for i, linha in enumerate(linhas_perg[:5]):
+        render = fonte_perg.render(linha, True, CORES["texto"])
+        screen.blit(render, (box_x + 30, y_perg + i * 30))
+
     fonte_alt = carregar_fonte("upheavtt.ttf", sf(16))
-    y_alt = y_perg + min(len(linhas_perg), 5) * 30 + 20
+    y_alt = y_perg + altura_pergunta
     mouse_pos = pygame.mouse.get_pos()
 
     for i, (letra, texto) in enumerate(opcoes[:5]):
@@ -306,6 +329,32 @@ def desenhar_pergunta_melhorado(
         # Texto
         texto_render = fonte_alt.render(texto, True, CORES["texto"])
         screen.blit(texto_render, (alt_rect.x + 55, alt_rect.y + 12))
+
+    # Restaura o clip
+    screen.set_clip(clip_anterior)
+
+    # Barra de scroll lateral, só aparece se precisar rolar
+    if quiz_max_scroll > 0:
+        barra_x = conteudo_rect.right - 6
+        barra_altura = max(
+            20, conteudo_rect.height * conteudo_rect.height / altura_total
+        )
+        proporcao_scroll = quiz_scroll / quiz_max_scroll
+        barra_y = conteudo_rect.top + proporcao_scroll * (
+            conteudo_rect.height - barra_altura
+        )
+        pygame.draw.rect(
+            screen,
+            CORES["cinza"],
+            (barra_x, conteudo_rect.top, 5, conteudo_rect.height),
+            border_radius=3,
+        )
+        pygame.draw.rect(
+            screen,
+            CORES["destaque"],
+            (barra_x, barra_y, 5, barra_altura),
+            border_radius=3,
+        )
 
     # Instrução
     fonte_inst = carregar_fonte("upheavtt.ttf", sf(14))
@@ -443,14 +492,6 @@ def desenhar_intro(mouse_pos):
     if intro_personagem_img and intro_personagem_rect:
         screen.blit(intro_personagem_img, intro_personagem_rect)
 
-        # Retângulo interativo — preenchido pelo sprite, borda animada - ESCONDIDO para remover ret. branco/amarelo
-        # hover = intro_personagem_rect.collidepoint(mouse_pos)
-        # cor_borda = constants.YELLOW if hover else constants.WHITE
-        # espessura  = 3 if hover else 2
-        # pygame.draw.rect(screen, cor_borda,
-        # intro_personagem_rect.inflate(8, 8),
-        # espessura, border_radius=10)
-
         # ── Balão de fala ───────────────────────────────────────────
         if intro_animacao_finalizada and 0 <= intro_indice_fala < len(texto_historia):
             fala = texto_historia[intro_indice_fala]
@@ -538,6 +579,8 @@ indice = 0
 quiz_mensagem = ""
 quiz_timer = 0
 item_para_remover = None
+quiz_scroll = 0  # posição atual do scroll na tela de perguntas
+quiz_max_scroll = 0  # limite máximo de scroll (calculado a cada frame)
 
 
 def reiniciar_movimento():
@@ -806,6 +849,9 @@ if __name__ == "__main__":
                     if event.key in (pygame.K_d, pygame.K_RIGHT):
                         moving_right = False
             elif estado_jogo == "QUIZ":
+                if event.type == pygame.MOUSEWHEEL:
+                    quiz_scroll -= event.y * 25
+                    quiz_scroll = max(0, min(quiz_scroll, quiz_max_scroll))
                 if event.type == pygame.KEYDOWN:
                     resposta = None
                     if event.key == pygame.K_1:
@@ -837,6 +883,7 @@ if __name__ == "__main__":
 
                         quiz_timer = 90
                         indice += 1
+                        quiz_scroll = 0  # reseta o scroll pra próxima pergunta
                         reiniciar_movimento()
                         if item_para_remover and item_para_remover in itens:
                             itens.remove(item_para_remover)
