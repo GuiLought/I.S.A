@@ -1,16 +1,24 @@
-import pygame
-import sys
 import random
-import constants
-from src.telas import TelaLogin, TelaConfiguracoes
-from src.character import Character
-from src.buttons import Botao, BotaoConfig, BotaoSair
-from src.world import World
-from src.enemies.enemy import Enemy
-from src.creditos import TelaCreditos
-from src.itens.minerio_cobre import minerio_cobre
+import sys
+
+import pygame
 from pygame import mixer
-from utils import carregar_imagem, carregar_tile, carregar_fonte, carregar_nivel_csv, carregar_perguntas_csv
+
+import constants
+from src.buttons import Botao, BotaoConfig, BotaoSair
+from src.character import Character
+from src.creditos import TelaCreditos
+from src.enemies.enemy import Enemy
+from src.itens.minerio_cobre import minerio_cobre
+from src.telas import TelaConfiguracoes, TelaLogin
+from src.world import World
+from utils import (
+    carregar_fonte,
+    carregar_imagem,
+    carregar_nivel_csv,
+    carregar_perguntas_csv,
+    carregar_tile,
+)
 
 # ── Inicialização ─────────────────────────────────────────────────────────────
 BASE_W = 800
@@ -19,17 +27,28 @@ BASE_H = 600
 screen = None
 clock = None
 
-constants.SCREEN_WIDTH  = BASE_W
+constants.SCREEN_WIDTH = BASE_W
 constants.SCREEN_HEIGHT = BASE_H
 
 # ── Estados possíveis ─────────────────────────────────────────────────────────
 estado_jogo = "MENU"
 
+
 # ── Escala proporcional ───────────────────────────────────────────────────────
-def sx(v): return int(v * constants.SCREEN_WIDTH  / BASE_W)
-def sy(v): return int(v * constants.SCREEN_HEIGHT / BASE_H)
-def sf(v): return max(8, int(v * min(constants.SCREEN_WIDTH / BASE_W,
-                                        constants.SCREEN_HEIGHT / BASE_H)))
+def sx(v):
+    return int(v * constants.SCREEN_WIDTH / BASE_W)
+
+
+def sy(v):
+    return int(v * constants.SCREEN_HEIGHT / BASE_H)
+
+
+def sf(v):
+    return max(
+        8,
+        int(v * min(constants.SCREEN_WIDTH / BASE_W, constants.SCREEN_HEIGHT / BASE_H)),
+    )
+
 
 # ── TELA DE CARREGAMENTO ──────────────────────────────────────────────────────
 def tela_carregamento(screen, progresso=0, mensagem="Carregando..."):
@@ -49,137 +68,184 @@ def tela_carregamento(screen, progresso=0, mensagem="Carregando..."):
     barra_h = 20
     barra_x = (W - barra_w) // 2
     barra_y = H // 2 + 20
-    pygame.draw.rect(screen, (60, 60, 80), (barra_x, barra_y, barra_w, barra_h), border_radius=10)
-    pygame.draw.rect(screen, (76, 175, 80), (barra_x, barra_y, int(barra_w * progresso), barra_h), border_radius=10)
-    pygame.draw.rect(screen, (241, 187, 52), (barra_x, barra_y, barra_w, barra_h), 2, border_radius=10)
+    pygame.draw.rect(
+        screen, (60, 60, 80), (barra_x, barra_y, barra_w, barra_h), border_radius=10
+    )
+    pygame.draw.rect(
+        screen,
+        (76, 175, 80),
+        (barra_x, barra_y, int(barra_w * progresso), barra_h),
+        border_radius=10,
+    )
+    pygame.draw.rect(
+        screen,
+        (241, 187, 52),
+        (barra_x, barra_y, barra_w, barra_h),
+        2,
+        border_radius=10,
+    )
     pygame.display.flip()
+
 
 # ── Recursos reescaláveis ─────────────────────────────────────────────────────
 background_img = None
-paralaxe_c1    = None
-paralaxe_c2    = None
-fonte_ui       = None
-fonte_titulo   = None
-botoes_menu    = []
-botoes_pausa   = []
+paralaxe_c1 = None
+paralaxe_c2 = None
+fonte_ui = None
+fonte_titulo = None
+botoes_menu = []
+botoes_pausa = []
 botoes_game_over = []
 botao_voltar = None
-tela_creditos  = None
-tela_login    = None
+tela_creditos = None
+tela_login = None
 tela_configuracoes = None
 
 
 def recriar_ui():
     global background_img, paralaxe_c1, paralaxe_c2, fonte_ui, fonte_titulo
-    global botoes_menu, botoes_pausa, botoes_game_over, tela_login, tela_creditos,tela_configuracoes,botao_voltar
+    global \
+        botoes_menu, \
+        botoes_pausa, \
+        botoes_game_over, \
+        tela_login, \
+        tela_creditos, \
+        tela_configuracoes, \
+        botao_voltar
     tela_carregamento(screen, 0.1, "Carregando interface...")
     W, H = constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT
     background_img = carregar_imagem("tela_menu", "Tela_Menu_Principal.jpg", (W, H))
     tela_carregamento(screen, 0.3, "Carregando imagens...")
     img_c1 = carregar_imagem("backgrounds", "C1.png")
     img_c2 = carregar_imagem("backgrounds", "C2.png")
-    paralaxe_c1 = pygame.transform.scale(img_c1, (img_c1.get_width() * H // img_c1.get_height(), H))
-    paralaxe_c2 = pygame.transform.scale(img_c2, (img_c2.get_width() * H // img_c2.get_height(), H))
+    paralaxe_c1 = pygame.transform.scale(
+        img_c1, (img_c1.get_width() * H // img_c1.get_height(), H)
+    )
+    paralaxe_c2 = pygame.transform.scale(
+        img_c2, (img_c2.get_width() * H // img_c2.get_height(), H)
+    )
     tela_carregamento(screen, 0.5, "Carregando fontes...")
-    fonte_ui     = carregar_fonte("upheavtt.ttf", sf(28))
+    fonte_ui = carregar_fonte("upheavtt.ttf", sf(28))
     fonte_titulo = carregar_fonte("upheavtt.ttf", sf(18))
     btn_w = max(180, sx(200))
     btn_h = max(50, sy(60))
-    x_c   = W // 2 - btn_w // 2
+    x_c = W // 2 - btn_w // 2
     tela_carregamento(screen, 0.7, "Carregando botões...")
     botoes_menu = [
         Botao("JOGAR", sx(300), sy(500), btn_w, btn_h, iniciar_jogo),
         BotaoSair(cx=sx(700), cy=sy(38), raio=max(25, sx(30)), acao=encerrar_jogo),
         BotaoConfig(cx=sx(762), cy=sy(38), raio=max(25, sx(30)), acao=configurar_jogo),
-        Botao("LOGIN", sx(300), sy(400), btn_w, btn_h, abrir_login)
+        Botao("LOGIN", sx(300), sy(400), btn_w, btn_h, abrir_login),
     ]
     botoes_pausa = [
         Botao("RETOMAR", x_c, sy(220), btn_w, btn_h, retomar_jogo),
-        Botao("MENU",    x_c, sy(310), btn_w, btn_h, voltar_menu),
+        Botao("MENU", x_c, sy(310), btn_w, btn_h, voltar_menu),
     ]
     botoes_game_over = [
         Botao("REINICIAR", x_c, sy(280), btn_w, btn_h, iniciar_jogo),
-        Botao("MENU",      x_c, sy(360), btn_w, btn_h, voltar_menu),
+        Botao("MENU", x_c, sy(360), btn_w, btn_h, voltar_menu),
     ]
 
     tela_creditos = TelaCreditos(screen, W, H, callback_voltar=voltar_menu)
     tela_carregamento(screen, 1.0, "Pronto!")
     pygame.time.wait(500)
 
+
 # ── Paralaxe ──────────────────────────────────────────────────────────────────
 def desenhar_paralaxe(camera_x=0):
     screen.fill((0, 0, 0))
     larg_c2 = paralaxe_c2.get_width()
-    off_c2  = int(-camera_x * 0.25) % larg_c2
+    off_c2 = int(-camera_x * 0.25) % larg_c2
     for x in range(-larg_c2, constants.SCREEN_WIDTH + larg_c2, larg_c2):
         screen.blit(paralaxe_c2, (x + off_c2, 0))
     larg_c1 = paralaxe_c1.get_width()
-    off_c1  = int(-camera_x * 0.50) % larg_c1
+    off_c1 = int(-camera_x * 0.50) % larg_c1
     for x in range(-larg_c1, constants.SCREEN_WIDTH + larg_c1, larg_c1):
         screen.blit(paralaxe_c1, (x + off_c1, 0))
 
+
 # ── TELA DE PERGUNTA COM LAYOUT MELHORADO ─────────────────────────────────────
-def desenhar_pergunta_melhorado(screen, pergunta, pontuacao, indice, total, mensagem="", tempo_msg=0):
+def desenhar_pergunta_melhorado(
+    screen, pergunta, pontuacao, indice, total, mensagem="", tempo_msg=0
+):
     W = constants.SCREEN_WIDTH
     H = constants.SCREEN_HEIGHT
-    
+
     # Cores
     CORES = {
-        'bg': (20, 20, 40),
-        'box': (45, 45, 65),
-        'box_alt': (55, 55, 75),
-        'texto': (255, 255, 255),
-        'titulo': (241, 187, 52),
-        'destaque': (100, 200, 255),
-        'verde': (76, 175, 80),
-        'vermelho': (244, 67, 54),
-        'cinza': (100, 100, 120)
+        "bg": (20, 20, 40),
+        "box": (45, 45, 65),
+        "box_alt": (55, 55, 75),
+        "texto": (255, 255, 255),
+        "titulo": (241, 187, 52),
+        "destaque": (100, 200, 255),
+        "verde": (76, 175, 80),
+        "vermelho": (244, 67, 54),
+        "cinza": (100, 100, 120),
     }
-    
+
     # Fundo com gradiente suave
     for i in range(H):
-        cor = (20 + i//30, 20 + i//30, 40 + i//20)
+        cor = (20 + i // 30, 20 + i // 30, 40 + i // 20)
         pygame.draw.line(screen, cor, (0, i), (W, i))
-    
+
     # Caixa principal
     box_w = int(W * 0.82)
     box_h = int(H * 0.82)
     box_x = (W - box_w) // 2
     box_y = (H - box_h) // 2
-    pygame.draw.rect(screen, CORES['box'], (box_x, box_y, box_w, box_h), border_radius=20)
-    pygame.draw.rect(screen, CORES['titulo'], (box_x, box_y, box_w, box_h), width=3, border_radius=20)
-    
+    pygame.draw.rect(
+        screen, CORES["box"], (box_x, box_y, box_w, box_h), border_radius=20
+    )
+    pygame.draw.rect(
+        screen, CORES["titulo"], (box_x, box_y, box_w, box_h), width=3, border_radius=20
+    )
+
     # Barra de progresso
     prog_w = box_w - 50
     prog_h = 12
     prog_x = box_x + 25
     prog_y = box_y + 50
     proporcao = indice / total if total > 0 else 0
-    pygame.draw.rect(screen, CORES['cinza'], (prog_x, prog_y, prog_w, prog_h), border_radius=6)
-    pygame.draw.rect(screen, CORES['verde'], (prog_x, prog_y, int(prog_w * proporcao), prog_h), border_radius=6)
-    
+    pygame.draw.rect(
+        screen, CORES["cinza"], (prog_x, prog_y, prog_w, prog_h), border_radius=6
+    )
+    pygame.draw.rect(
+        screen,
+        CORES["verde"],
+        (prog_x, prog_y, int(prog_w * proporcao), prog_h),
+        border_radius=6,
+    )
+
     # Título e pontuação
     fonte_tit = carregar_fonte("upheavtt.ttf", sf(24))
-    tit = fonte_tit.render(" PERGUNTA", True, CORES['titulo'])
+    tit = fonte_tit.render(" PERGUNTA", True, CORES["titulo"])
     screen.blit(tit, (box_x + 25, box_y + 20))
     fonte_score = carregar_fonte("upheavtt.ttf", sf(20))
-    score_txt = fonte_score.render(f" {pontuacao}/{total}", True, CORES['titulo'])
+    score_txt = fonte_score.render(f" {pontuacao}/{total}", True, CORES["titulo"])
     screen.blit(score_txt, (box_x + box_w - score_txt.get_width() - 25, box_y + 22))
-    
+
     # Disciplina e dificuldade
-    disc = pergunta.get('disciplina', 'Geral')[:25]
-    diff = pergunta.get('dificuldade', pergunta.get('nivel', 'Médio'))[:15]
+    disc = pergunta.get("disciplina", "Geral")[:25]
+    diff = pergunta.get("dificuldade", pergunta.get("nivel", "Médio"))[:15]
     fonte_info = carregar_fonte("upheavtt.ttf", sf(16))
-    info = fonte_info.render(f"{disc}  |  {diff}", True, CORES['destaque'])
+    info = fonte_info.render(f"{disc}  |  {diff}", True, CORES["destaque"])
     screen.blit(info, (box_x + 28, prog_y + 25))
-    
+
     # Linha separadora
     separador_y = prog_y + 55
-    pygame.draw.line(screen, CORES['titulo'], (box_x + 25, separador_y), (box_x + box_w - 25, separador_y), 2)
-    
+    pygame.draw.line(
+        screen,
+        CORES["titulo"],
+        (box_x + 25, separador_y),
+        (box_x + box_w - 25, separador_y),
+        2,
+    )
+
     # Pergunta (com quebra de linha)
-    texto_pergunta = pergunta.get('pergunta', 'Pergunta não disponível')[:300]
+    texto_pergunta = pergunta.get("pergunta", "Pergunta não disponível")[:300]
     fonte_perg = carregar_fonte("upheavtt.ttf", sf(18))
+
     def quebrar_texto(texto, fonte, larg_max):
         palavras = texto.split()
         linhas = []
@@ -195,86 +261,98 @@ def desenhar_pergunta_melhorado(screen, pergunta, pontuacao, indice, total, mens
         if linha:
             linhas.append(linha)
         return linhas if linhas else [texto[:60]]
-    
+
     larg_max_perg = box_w - 60
     linhas_perg = quebrar_texto(texto_pergunta, fonte_perg, larg_max_perg)
     y_perg = separador_y + 20
     for i, linha in enumerate(linhas_perg[:5]):
-        render = fonte_perg.render(linha, True, CORES['texto'])
+        render = fonte_perg.render(linha, True, CORES["texto"])
         screen.blit(render, (box_x + 30, y_perg + i * 30))
-    
+
     # Alternativas
     opcoes = []
-    chaves = ['opcao_a', 'opcao_b', 'opcao_c', 'opcao_d', 'opcao_e']
-    chaves_acento = ['opçao_a', 'opçao_b', 'opçao_c', 'opçao_d', 'opçao_e']
-    letras = ['A', 'B', 'C', 'D', 'E']
+    chaves = ["opcao_a", "opcao_b", "opcao_c", "opcao_d", "opcao_e"]
+    chaves_acento = ["opçao_a", "opçao_b", "opçao_c", "opçao_d", "opçao_e"]
+    letras = ["A", "B", "C", "D", "E"]
     for i, chave in enumerate(chaves):
-        texto = pergunta.get(chave, '')
+        texto = pergunta.get(chave, "")
         if not texto and i < len(chaves_acento):
-            texto = pergunta.get(chaves_acento[i], '')
+            texto = pergunta.get(chaves_acento[i], "")
         if texto and len(str(texto)) > 1:
             opcoes.append((letras[i], str(texto)[:120]))
     if not opcoes:
-        opcoes = [('A', 'Alternativa A'), ('B', 'Alternativa B'), ('C', 'Alternativa C')]
-    
+        opcoes = [
+            ("A", "Alternativa A"),
+            ("B", "Alternativa B"),
+            ("C", "Alternativa C"),
+        ]
+
     fonte_alt = carregar_fonte("upheavtt.ttf", sf(16))
     y_alt = y_perg + min(len(linhas_perg), 5) * 30 + 20
     mouse_pos = pygame.mouse.get_pos()
-    
+
     for i, (letra, texto) in enumerate(opcoes[:5]):
         alt_rect = pygame.Rect(box_x + 25, y_alt + i * 48, box_w - 50, 42)
-        cor_fundo = CORES['box_alt'] if alt_rect.collidepoint(mouse_pos) else (55, 55, 75)
+        cor_fundo = (
+            CORES["box_alt"] if alt_rect.collidepoint(mouse_pos) else (55, 55, 75)
+        )
         pygame.draw.rect(screen, cor_fundo, alt_rect, border_radius=12)
-        pygame.draw.rect(screen, CORES['destaque'], alt_rect, width=1, border_radius=12)
+        pygame.draw.rect(screen, CORES["destaque"], alt_rect, width=1, border_radius=12)
         # Letra
         letra_rect = pygame.Rect(alt_rect.x + 12, alt_rect.y + 8, 28, 26)
-        pygame.draw.rect(screen, CORES['titulo'], letra_rect, border_radius=6)
-        letra_surf = fonte_alt.render(letra, True, CORES['bg'])
+        pygame.draw.rect(screen, CORES["titulo"], letra_rect, border_radius=6)
+        letra_surf = fonte_alt.render(letra, True, CORES["bg"])
         screen.blit(letra_surf, (letra_rect.x + 8, letra_rect.y + 4))
         # Texto
-        texto_render = fonte_alt.render(texto, True, CORES['texto'])
+        texto_render = fonte_alt.render(texto, True, CORES["texto"])
         screen.blit(texto_render, (alt_rect.x + 55, alt_rect.y + 12))
-    
+
     # Instrução
     fonte_inst = carregar_fonte("upheavtt.ttf", sf(14))
-    instrucao = fonte_inst.render("1 2 3 4 5 = Responder   |   ESC = Voltar", True, CORES['destaque'])
+    instrucao = fonte_inst.render(
+        "1 2 3 4 5 = Responder   |   ESC = Voltar", True, CORES["destaque"]
+    )
     screen.blit(instrucao, instrucao.get_rect(center=(W // 2, box_y + box_h - 25)))
-    
+
     # Mensagem de feedback
     if mensagem and tempo_msg > 0:
         fonte_msg = carregar_fonte("upheavtt.ttf", sf(28))
-        cor_msg = CORES['verde'] if "ACERTOU" in mensagem else CORES['vermelho']
+        cor_msg = CORES["verde"] if "ACERTOU" in mensagem else CORES["vermelho"]
         msg_surf = fonte_msg.render(mensagem, True, cor_msg)
-        msg_bg = pygame.Surface((msg_surf.get_width() + 40, msg_surf.get_height() + 20), pygame.SRCALPHA)
+        msg_bg = pygame.Surface(
+            (msg_surf.get_width() + 40, msg_surf.get_height() + 20), pygame.SRCALPHA
+        )
         msg_bg.fill((0, 0, 0, 200))
         msg_x = (W - msg_bg.get_width()) // 2
         msg_y = H - 90
         screen.blit(msg_bg, (msg_x, msg_y))
         screen.blit(msg_surf, (msg_x + 20, msg_y + 10))
-    
+
     return mouse_pos
 
+
 # ── Intro do personagem ─────────────────────────────────────────────────────
-intro_personagem_img   = None
-intro_personagem_rect  = None
-intro_personagem_x     = -200
-intro_personagem_y     = 0
-intro_velocidade       = 3
+intro_personagem_img = None
+intro_personagem_rect = None
+intro_personagem_x = -200
+intro_personagem_y = 0
+intro_velocidade = 3
 intro_animacao_finalizada = False
-intro_frames           = []
-intro_frame_index      = 0
-intro_frame_counter    = 0
-intro_frame_delay      = 12
+intro_frames = []
+intro_frame_index = 0
+intro_frame_counter = 0
+intro_frame_delay = 12
 
 # Balão de fala: índice da fala atual (-1 = nenhuma)
-intro_indice_fala      = -1
+intro_indice_fala = -1
 
 texto_historia = [
     "Bem-vindo ao I.S.A!",
     "Ajude a personagem a coletar os minerios",
     "e responder as perguntas.",
-    "Clique em qualquer lugar para continuar."
+    "Clique em qualquer lugar para continuar.",
 ]
+
 
 def inicializar_intro():
     global intro_personagem_img, intro_personagem_rect
@@ -284,9 +362,10 @@ def inicializar_intro():
     global intro_indice_fala
 
     frame_names = [
-                   "S4.png",
-                   "S5.png",]
-    
+        "S4.png",
+        "S5.png",
+    ]
+
     intro_frames = []
     for nome in frame_names:
         try:
@@ -301,20 +380,20 @@ def inicializar_intro():
         except:
             intro_frames = []
 
-    intro_frame_index    = 0
-    intro_frame_counter  = 0
-    intro_indice_fala    = -1          # nenhum balão ainda
+    intro_frame_index = 0
+    intro_frame_counter = 0
+    intro_indice_fala = -1  # nenhum balão ainda
     intro_personagem_img = intro_frames[0] if intro_frames else None
-    intro_personagem_x   = -140
-    intro_personagem_y   = constants.SCREEN_HEIGHT - 250
+    intro_personagem_x = -140
+    intro_personagem_y = constants.SCREEN_HEIGHT - 250
     intro_personagem_rect = (
-        intro_personagem_img.get_rect(
-            topleft=(intro_personagem_x, intro_personagem_y)
-        ) if intro_personagem_img else None
+        intro_personagem_img.get_rect(topleft=(intro_personagem_x, intro_personagem_y))
+        if intro_personagem_img
+        else None
     )
     intro_animacao_finalizada = False
- 
-    
+
+
 def atualizar_intro():
     """Avança a animação de corrida. Chamar apenas quando estado == 'INTRO'."""
     global intro_personagem_x, intro_personagem_rect
@@ -340,8 +419,9 @@ def atualizar_intro():
                 sprite_parado = carregar_imagem("personagens", "S7.png")
                 intro_personagem_img = pygame.transform.scale(sprite_parado, (220, 220))
             except:
-                pass  
-        
+                pass
+
+
 def processar_clique_intro(pos_mouse):
     global intro_indice_fala, estado_jogo
 
@@ -354,7 +434,8 @@ def processar_clique_intro(pos_mouse):
         return
 
     intro_indice_fala = (intro_indice_fala + 1) % len(texto_historia)
-        
+
+
 def desenhar_intro(mouse_pos):
     W, H = constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT
 
@@ -363,51 +444,59 @@ def desenhar_intro(mouse_pos):
         screen.blit(intro_personagem_img, intro_personagem_rect)
 
         # Retângulo interativo — preenchido pelo sprite, borda animada - ESCONDIDO para remover ret. branco/amarelo
-        #hover = intro_personagem_rect.collidepoint(mouse_pos)
-        #cor_borda = constants.YELLOW if hover else constants.WHITE
-        #espessura  = 3 if hover else 2
-        #pygame.draw.rect(screen, cor_borda,
-                         #intro_personagem_rect.inflate(8, 8),
-                         #espessura, border_radius=10)
-
-
+        # hover = intro_personagem_rect.collidepoint(mouse_pos)
+        # cor_borda = constants.YELLOW if hover else constants.WHITE
+        # espessura  = 3 if hover else 2
+        # pygame.draw.rect(screen, cor_borda,
+        # intro_personagem_rect.inflate(8, 8),
+        # espessura, border_radius=10)
 
         # ── Balão de fala ───────────────────────────────────────────
         if intro_animacao_finalizada and 0 <= intro_indice_fala < len(texto_historia):
-            fala     = texto_historia[intro_indice_fala]
-            fonte_b  = carregar_fonte("upheavtt.ttf", sf(18))
+            fala = texto_historia[intro_indice_fala]
+            fonte_b = carregar_fonte("upheavtt.ttf", sf(18))
             surf_txt = fonte_b.render(fala, True, (20, 20, 20))
-            pad      = 12
-            bal_w    = surf_txt.get_width()  + pad * 2
-            bal_h    = surf_txt.get_height() + pad * 2 + 22
-            bal_x    = intro_personagem_rect.right + sx(14)
-            bal_y    = intro_personagem_rect.top
+            pad = 12
+            bal_w = surf_txt.get_width() + pad * 2
+            bal_h = surf_txt.get_height() + pad * 2 + 22
+            bal_x = intro_personagem_rect.right + sx(14)
+            bal_y = intro_personagem_rect.top
 
             # Garante que não sai da tela pela direita
             if bal_x + bal_w > W - 10:
                 bal_x = intro_personagem_rect.left - bal_w - sx(14)
 
             # Fundo branco do balão
-            pygame.draw.rect(screen, (255, 255, 240),
-                             (bal_x, bal_y, bal_w, bal_h),
-                             border_radius=12)
-            pygame.draw.rect(screen, (80, 60, 20),
-                             (bal_x, bal_y, bal_w, bal_h),
-                             2, border_radius=12)
+            pygame.draw.rect(
+                screen, (255, 255, 240), (bal_x, bal_y, bal_w, bal_h), border_radius=12
+            )
+            pygame.draw.rect(
+                screen, (80, 60, 20), (bal_x, bal_y, bal_w, bal_h), 2, border_radius=12
+            )
 
             # Rabinho do balão (triângulo apontando para o personagem)
-            cx = bal_x          # borda esquerda do balão
+            cx = bal_x  # borda esquerda do balão
             cy = bal_y + bal_h // 2
-            pygame.draw.polygon(screen, (255, 255, 240), [
-                (cx,          cy - 8),
-                (cx,          cy + 8),
-                (cx - sx(12), cy),
-            ])
-            pygame.draw.lines(screen, (80, 60, 20), False, [
-                (cx,          cy - 8),
-                (cx - sx(12), cy),
-                (cx,          cy + 8),
-            ], 2)
+            pygame.draw.polygon(
+                screen,
+                (255, 255, 240),
+                [
+                    (cx, cy - 8),
+                    (cx, cy + 8),
+                    (cx - sx(12), cy),
+                ],
+            )
+            pygame.draw.lines(
+                screen,
+                (80, 60, 20),
+                False,
+                [
+                    (cx, cy - 8),
+                    (cx - sx(12), cy),
+                    (cx, cy + 8),
+                ],
+                2,
+            )
 
             screen.blit(surf_txt, (bal_x + pad, bal_y + pad))
             # instrução de continuar
@@ -417,36 +506,44 @@ def desenhar_intro(mouse_pos):
 
             # Contador de falas (ex: 1/4)
             prog = fonte_titulo.render(
-                f"{intro_indice_fala+1}/{len(texto_historia)}",
-                True, constants.YELLOW
+                f"{intro_indice_fala + 1}/{len(texto_historia)}", True, constants.YELLOW
             )
-            screen.blit(prog, (bal_x + bal_w - prog.get_width() - 6,
-                               bal_y + bal_h - prog.get_height() - 4))        
+            screen.blit(
+                prog,
+                (
+                    bal_x + bal_w - prog.get_width() - 6,
+                    bal_y + bal_h - prog.get_height() - 4,
+                ),
+            )
+
 
 def abrir_historia():
     global estado_jogo
     estado_jogo = "HISTORIA"
 
+
 # ── Variáveis de jogo ─────────────────────────────────────────────────────────
-player   = None
-world    = None
-enemies  = []
-itens    = []
+player = None
+world = None
+enemies = []
+itens = []
 camera_x = 0
 camera_y = 0
 moving_left = moving_right = False
 jump_pressed = False
 
-perguntas         = []
-pontuacao         = 0
-indice            = 0
-quiz_mensagem     = ""
-quiz_timer        = 0
+perguntas = []
+pontuacao = 0
+indice = 0
+quiz_mensagem = ""
+quiz_timer = 0
 item_para_remover = None
+
 
 def reiniciar_movimento():
     global moving_left, moving_right, jump_pressed
     moving_left = moving_right = jump_pressed = False
+
 
 def carregar_perguntas():
     try:
@@ -458,16 +555,36 @@ def carregar_perguntas():
         print(f"Erro ao carregar perguntas: {e}")
     # Fallback
     print(" Usando perguntas padrão")
-    
+
     # NÃO CONSERTE ESSA IDENTAÇÃO, O CÓDIGO QUEBRA SE FIZER ISSO (Guilherme)
     return [
-        {"disciplina": "Teste", "dificuldade": "Fácil", "pergunta": "Quanto é 2+2?",
-         "opcao_a": "3", "opcao_b": "4", "opcao_c": "5", "opcao_d": "6", "opcao_e": "", "resposta": "b"},
-        {"disciplina": "Teste", "dificuldade": "Fácil", "pergunta": "Qual a cor do céu?",
-         "opcao_a": "Verde", "opcao_b": "Azul", "opcao_c": "Vermelho", "opcao_d": "Amarelo", "opcao_e": "", "resposta": "b"},
+        {
+            "disciplina": "Teste",
+            "dificuldade": "Fácil",
+            "pergunta": "Quanto é 2+2?",
+            "opcao_a": "3",
+            "opcao_b": "4",
+            "opcao_c": "5",
+            "opcao_d": "6",
+            "opcao_e": "",
+            "resposta": "b",
+        },
+        {
+            "disciplina": "Teste",
+            "dificuldade": "Fácil",
+            "pergunta": "Qual a cor do céu?",
+            "opcao_a": "Verde",
+            "opcao_b": "Azul",
+            "opcao_c": "Vermelho",
+            "opcao_d": "Amarelo",
+            "opcao_e": "",
+            "resposta": "b",
+        },
     ]
 
+
 perguntas = carregar_perguntas()
+
 
 # ── Carregamento do nível ─────────────────────────────────────────────────────
 def carregar_recursos_jogo():
@@ -483,10 +600,15 @@ def carregar_recursos_jogo():
     world.process_data(world_data, tile_list)
     tela_carregamento(screen, 0.6, "Carregando personagem...")
     player_image = carregar_imagem("personagens", "areninha_ISA.png")
-    player = Character(constants.PLAYER_START_X, constants.PLAYER_START_Y,
-# NÃO CONSERTE ESSA IDENTAÇÃO, O CÓDIGO QUEBRA SE FIZER ISSO (Guilherme)
-                       constants.PLAYER_SIZE, constants.PLAYER_SPEED,
-                       player_image, constants.PLAYER_HEALTH)
+    player = Character(
+        constants.PLAYER_START_X,
+        constants.PLAYER_START_Y,
+        # NÃO CONSERTE ESSA IDENTAÇÃO, O CÓDIGO QUEBRA SE FIZER ISSO (Guilherme)
+        constants.PLAYER_SIZE,
+        constants.PLAYER_SPEED,
+        player_image,
+        constants.PLAYER_HEALTH,
+    )
     tela_carregamento(screen, 0.8, "Carregando inimigos e itens...")
     enemies = [Enemy(x=constants.PLAYER_START_X + 300, y=constants.PLAYER_START_Y)]
     # Minérios posicionados em cima dos tiles sólidos reais do level1_data.csv
@@ -514,7 +636,7 @@ def carregar_recursos_jogo():
         y_topo = _topo_tile_em_col(world_data, col_idx)
         if y_topo is not None:
             px = col_idx * TILE + (TILE - MINERIO_W) // 2  # centralizado no tile
-            py = y_topo - MINERIO_H                          # logo acima do bloco
+            py = y_topo - MINERIO_H  # logo acima do bloco
             posicoes_minerios.append((px, py))
     itens = [
         minerio_cobre("m_minerio.png", x=px, y=py, tamanho=(40, 40))
@@ -530,6 +652,7 @@ def carregar_recursos_jogo():
     tela_carregamento(screen, 1.0, "Pronto!")
     pygame.time.wait(300)
 
+
 # ── Câmera ────────────────────────────────────────────────────────────────────
 def atualizar_camera():
     global camera_x, camera_y
@@ -540,6 +663,7 @@ def atualizar_camera():
     camera_x = max(0, min(target_x, map_w - constants.SCREEN_WIDTH))
     camera_y = max(0, min(target_y, map_h - constants.SCREEN_HEIGHT))
 
+
 # ── Ações dos botões ──────────────────────────────────────────────────────────
 def iniciar_jogo():
     global estado_jogo
@@ -548,26 +672,32 @@ def iniciar_jogo():
     carregar_recursos_jogo()
     estado_jogo = "JOGANDO"
 
+
 def encerrar_jogo():
     pygame.quit()
     sys.exit()
+
 
 def abrir_login():
     global estado_jogo
     estado_jogo = "LOGIN"
     print("Login não implementado")
 
+
 def abrir_historia():
     global estado_jogo
     estado_jogo = "HISTORIA"
+
 
 def configurar_jogo():
     global estado_jogo
     estado_jogo = "CONFIGURACOES"
 
+
 def retomar_jogo():
     global estado_jogo
     estado_jogo = "JOGANDO"
+
 
 def voltar_menu():
     global estado_jogo, player, world, enemies, itens
@@ -576,9 +706,11 @@ def voltar_menu():
     itens = []
     estado_jogo = "MENU"
 
+
 def abrir_creditos():
     global estado_jogo
     estado_jogo = "CREDITOS"
+
 
 # ── Loop principal ────────────────────────────────────────────────────────────
 if __name__ == "__main__":
@@ -594,12 +726,18 @@ if __name__ == "__main__":
     constants.SCREEN_HEIGHT = screen.get_height()
     tela_carregamento(screen, 0.0, "Inicializando...")
     pygame.display.flip()
-    
+
     recriar_ui()
     inicializar_intro()
-    
+
     tela_login = TelaLogin(screen)
-    tela_configuracoes = TelaConfiguracoes(screen,constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT, callback_voltar=voltar_menu, callback_creditos=abrir_creditos)
+    tela_configuracoes = TelaConfiguracoes(
+        screen,
+        constants.SCREEN_WIDTH,
+        constants.SCREEN_HEIGHT,
+        callback_voltar=voltar_menu,
+        callback_creditos=abrir_creditos,
+    )
 
     run = True
     while run:
@@ -614,18 +752,20 @@ if __name__ == "__main__":
             if event.type == pygame.QUIT:
                 run = False
             if event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
-                
                 if screen.get_flags() & pygame.FULLSCREEN:
                     screen = pygame.display.set_mode((BASE_W, BASE_H))
                 else:
                     screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
-                constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT = screen.get_width(), screen.get_height()
+                constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT = (
+                    screen.get_width(),
+                    screen.get_height(),
+                )
                 recriar_ui()
                 inicializar_intro()
-                tela_login = TelaLogin(screen,
-                voltar_menu
+                tela_login = TelaLogin(screen, voltar_menu)
+                tela_login.redimensionar(
+                    constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT
                 )
-                tela_login.redimensionar(constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT)
 
                 tela_configuracoes = TelaConfiguracoes(
                     screen,
@@ -633,45 +773,60 @@ if __name__ == "__main__":
                     constants.SCREEN_HEIGHT,
                     callback_voltar=voltar_menu,
                     callback_creditos=abrir_creditos,
-                    callback_toggle_fullscreen=lambda: None
-            )
+                    callback_toggle_fullscreen=lambda: None,
+                )
 
                 tela_creditos = TelaCreditos(
                     screen,
                     constants.SCREEN_WIDTH,
                     constants.SCREEN_HEIGHT,
-                    callback_voltar=voltar_menu
+                    callback_voltar=voltar_menu,
                 )
 
             elif estado_jogo == "MENU":
                 for botao in botoes_menu:
                     botao.verificar_click(event)
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:  # ← linha nova
-                    processar_clique_intro(event.pos)                           # ← linha nova
+                if (
+                    event.type == pygame.MOUSEBUTTONDOWN and event.button == 1
+                ):  # ← linha nova
+                    processar_clique_intro(event.pos)  # ← linha nova
             elif estado_jogo == "JOGANDO":
                 if event.type == pygame.KEYDOWN:
-                    if event.key in (pygame.K_a, pygame.K_LEFT): moving_left = True
-                    if event.key in (pygame.K_d, pygame.K_RIGHT): moving_right = True
-                    if event.key in (pygame.K_w, pygame.K_UP, pygame.K_SPACE): jump_pressed = True
-                    if event.key == pygame.K_ESCAPE: estado_jogo = "PAUSADO"
+                    if event.key in (pygame.K_a, pygame.K_LEFT):
+                        moving_left = True
+                    if event.key in (pygame.K_d, pygame.K_RIGHT):
+                        moving_right = True
+                    if event.key in (pygame.K_w, pygame.K_UP, pygame.K_SPACE):
+                        jump_pressed = True
+                    if event.key == pygame.K_ESCAPE:
+                        estado_jogo = "PAUSADO"
                 elif event.type == pygame.KEYUP:
-                    if event.key in (pygame.K_a, pygame.K_LEFT): moving_left = False
-                    if event.key in (pygame.K_d, pygame.K_RIGHT): moving_right = False
+                    if event.key in (pygame.K_a, pygame.K_LEFT):
+                        moving_left = False
+                    if event.key in (pygame.K_d, pygame.K_RIGHT):
+                        moving_right = False
             elif estado_jogo == "QUIZ":
                 if event.type == pygame.KEYDOWN:
                     resposta = None
-                    if event.key == pygame.K_1: resposta = 'a' 
-                    elif event.key == pygame.K_2: resposta = 'b'
-                    elif event.key == pygame.K_3: resposta = 'c'
-                    elif event.key == pygame.K_4: resposta = 'd'
-                    elif event.key == pygame.K_5: resposta = 'e'
+                    if event.key == pygame.K_1:
+                        resposta = "a"
+                    elif event.key == pygame.K_2:
+                        resposta = "b"
+                    elif event.key == pygame.K_3:
+                        resposta = "c"
+                    elif event.key == pygame.K_4:
+                        resposta = "d"
+                    elif event.key == pygame.K_5:
+                        resposta = "e"
                     if resposta and indice < len(perguntas):
                         gabarito = perguntas[indice].get("resposta", "").strip().lower()
                         if resposta == gabarito:
                             pontuacao += 1
                             quiz_mensagem = "VOCE ACERTOU! +20 de vida"
                             if player and player.alive:
-                                player.player_health = min(player.player_health + 20, constants.PLAYER_HEALTH)
+                                player.player_health = min(
+                                    player.player_health + 20, constants.PLAYER_HEALTH
+                                )
                         else:
                             quiz_mensagem = "VOCE ERROU!"
                             if player and player.alive:
@@ -679,9 +834,9 @@ if __name__ == "__main__":
                                 if player.player_health <= 0:
                                     player.player_health = 0
                                     player.alive = False
-                            
+
                         quiz_timer = 90
-                        indice += 1    
+                        indice += 1
                         reiniciar_movimento()
                         if item_para_remover and item_para_remover in itens:
                             itens.remove(item_para_remover)
@@ -711,13 +866,14 @@ if __name__ == "__main__":
                 tela_configuracoes.handle_event(event)
             elif estado_jogo == "CREDITOS":
                 tela_creditos.handle_event(event)
-                
+
         # Atualização
         if estado_jogo == "MENU":
             atualizar_intro()
         elif estado_jogo == "JOGANDO" and player:
             if jump_pressed:
-                if player.jump(): jump_pressed = False
+                if player.jump():
+                    jump_pressed = False
             dx = (moving_right - moving_left) * constants.PLAYER_SPEED
             player.move(dx, world.obstacles if world else [])
             atualizar_camera()
@@ -731,8 +887,11 @@ if __name__ == "__main__":
                     reiniciar_movimento()
                     item_para_remover = item
                     break
-            if not player.alive or player.rect.top > constants.MAP_ROWS * constants.TILE_SIZE:
-                estado_jogo = "GAME_OVER"  
+            if (
+                not player.alive
+                or player.rect.top > constants.MAP_ROWS * constants.TILE_SIZE
+            ):
+                estado_jogo = "GAME_OVER"
 
         if estado_jogo == "QUIZ_FEEDBACK" and quiz_timer == 0:
             if player and not player.alive:
@@ -755,20 +914,42 @@ if __name__ == "__main__":
             if world:
                 world.render(screen, camera_x, camera_y)
             for enemy in enemies:
-                if enemy: enemy.draw(screen, camera_x, camera_y)
+                if enemy:
+                    enemy.draw(screen, camera_x, camera_y)
             for item in itens:
-                if item: item.draw(screen, camera_x, camera_y)
+                if item:
+                    item.draw(screen, camera_x, camera_y)
             if player and player.alive:
                 player.draw(screen, camera_x, camera_y)
             hint = fonte_titulo.render("ESC = Pausa", True, constants.WHITE)
             screen.blit(hint, (sx(10), sy(10)))
             if player and player.alive:
-                BAR_W = sx(200); BAR_H = sy(18); BAR_X = sx(10); BAR_Y = sy(35)
-                proporcao = max(0, min(1, player.player_health / constants.PLAYER_HEALTH))
-                pygame.draw.rect(screen, constants.RED, (BAR_X, BAR_Y, BAR_W, BAR_H), border_radius=4)
-                pygame.draw.rect(screen, constants.GREEN, (BAR_X, BAR_Y, int(BAR_W * proporcao), BAR_H), border_radius=4)
-                pygame.draw.rect(screen, constants.WHITE, (BAR_X, BAR_Y, BAR_W, BAR_H), 2, border_radius=4)
-                score_surf = fonte_ui.render(f"Pontos: {pontuacao}", True, constants.WHITE)
+                BAR_W = sx(200)
+                BAR_H = sy(18)
+                BAR_X = sx(10)
+                BAR_Y = sy(35)
+                proporcao = max(
+                    0, min(1, player.player_health / constants.PLAYER_HEALTH)
+                )
+                pygame.draw.rect(
+                    screen, constants.RED, (BAR_X, BAR_Y, BAR_W, BAR_H), border_radius=4
+                )
+                pygame.draw.rect(
+                    screen,
+                    constants.GREEN,
+                    (BAR_X, BAR_Y, int(BAR_W * proporcao), BAR_H),
+                    border_radius=4,
+                )
+                pygame.draw.rect(
+                    screen,
+                    constants.WHITE,
+                    (BAR_X, BAR_Y, BAR_W, BAR_H),
+                    2,
+                    border_radius=4,
+                )
+                score_surf = fonte_ui.render(
+                    f"Pontos: {pontuacao}", True, constants.WHITE
+                )
                 screen.blit(score_surf, (W - sx(160), sy(10)))
             if estado_jogo == "PAUSADO":
                 overlay = pygame.Surface((W, H), pygame.SRCALPHA)
@@ -781,7 +962,15 @@ if __name__ == "__main__":
         elif estado_jogo == "QUIZ":
             try:
                 if indice < len(perguntas):
-                    desenhar_pergunta_melhorado(screen, perguntas[indice], pontuacao, indice, len(perguntas), quiz_mensagem, quiz_timer)
+                    desenhar_pergunta_melhorado(
+                        screen,
+                        perguntas[indice],
+                        pontuacao,
+                        indice,
+                        len(perguntas),
+                        quiz_mensagem,
+                        quiz_timer,
+                    )
                 else:
                     estado_jogo = "JOGANDO"
             except Exception as e:
@@ -795,10 +984,10 @@ if __name__ == "__main__":
             cor_fb = (76, 175, 80) if "ACERTOU" in quiz_mensagem else (244, 67, 54)
             fonte_fb = carregar_fonte("upheavtt.ttf", sf(32))
             msg_fb = fonte_fb.render(quiz_mensagem, True, cor_fb)
-            screen.blit(msg_fb, msg_fb.get_rect(center=(W2//2, H2//2)))
+            screen.blit(msg_fb, msg_fb.get_rect(center=(W2 // 2, H2 // 2)))
             fonte_sub = carregar_fonte("upheavtt.ttf", sf(16))
             sub = fonte_sub.render("Voltando ao jogo...", True, (200, 200, 200))
-            screen.blit(sub, sub.get_rect(center=(W2//2, H2//2 + sy(60))))
+            screen.blit(sub, sub.get_rect(center=(W2 // 2, H2 // 2 + sy(60))))
 
         elif estado_jogo == "GAME_OVER":
             screen.blit(background_img, (0, 0))
@@ -807,18 +996,24 @@ if __name__ == "__main__":
             screen.blit(overlay, (0, 0))
             surf = fonte_ui.render("GAME OVER", True, constants.RED)
             screen.blit(surf, surf.get_rect(center=(W // 2, sy(180))))
-            score_surf = fonte_ui.render(f"Pontuacao Final: {pontuacao}", True, constants.YELLOW)
+            score_surf = fonte_ui.render(
+                f"Pontuacao Final: {pontuacao}", True, constants.YELLOW
+            )
             screen.blit(score_surf, score_surf.get_rect(center=(W // 2, sy(240))))
             for botao in botoes_game_over:
                 botao.desenhar(screen, mouse_pos)
         elif estado_jogo == "HISTORIA":
             screen.fill((15, 15, 15))
             titulo_historia = fonte_ui.render("HISTORIA", True, constants.YELLOW)
-            screen.blit(titulo_historia, titulo_historia.get_rect(center=(W // 2, sy(120))))
+            screen.blit(
+                titulo_historia, titulo_historia.get_rect(center=(W // 2, sy(120)))
+            )
             y_texto = sy(220)
             for linha in texto_historia:
                 texto_surface = fonte_titulo.render(linha, True, constants.WHITE)
-                screen.blit(texto_surface, texto_surface.get_rect(center=(W // 2, y_texto)))
+                screen.blit(
+                    texto_surface, texto_surface.get_rect(center=(W // 2, y_texto))
+                )
                 y_texto += sy(50)
         elif estado_jogo == "LOGIN":
             tela_login.desenhar()
