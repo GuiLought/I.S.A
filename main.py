@@ -54,7 +54,7 @@ def tocar_musica(nome_arquivo, pasta_interna="songs", volume=VOLUME_NORMAL, fade
         mixer.music.set_volume(volume)
         mixer.music.play(-1, fade_ms=fade_ms)
         musica_atual = nome_arquivo
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         print(f"Erro ao tocar música '{nome_arquivo}': {e}")
 
 
@@ -86,7 +86,7 @@ def tela_carregamento(screen, progresso=0, mensagem="Carregando..."):
         fonte_msg = carregar_fonte("upheavtt.ttf", sf(20))
         texto = fonte_msg.render(mensagem, True, (200, 200, 200))
         screen.blit(texto, texto.get_rect(center=(W // 2, H // 2 - 20)))
-    except:
+    except:  # noqa: E722, S110
         pass
     barra_w = 400
     barra_h = 20
@@ -135,7 +135,7 @@ def recriar_ui():
         tela_login, \
         tela_creditos, \
         tela_configuracoes, \
-        botao_voltar
+        botao_voltar  # noqa: PLW0602
     tela_carregamento(screen, 0.1, "Carregando interface...")
     W, H = constants.SCREEN_WIDTH, constants.SCREEN_HEIGHT
     background_img = carregar_imagem("tela_menu", "Tela_Menu_Principal.jpg", (W, H))
@@ -278,8 +278,8 @@ def desenhar_pergunta_melhorado(
         conteudo_rect  # guarda pra checar clique dentro da área visível
     )
 
-    # Pergunta (com quebra de linha)
-    texto_pergunta = pergunta.get("pergunta", "Pergunta não disponível")[:300]
+    # Pergunta (com quebra de linha) — sem corte agressivo, o scroll cuida do resto
+    texto_pergunta = pergunta.get("pergunta", "Pergunta não disponível")[:1000]
     fonte_perg = carregar_fonte("upheavtt.ttf", sf(16))
 
     def quebrar_texto(texto, fonte, larg_max):
@@ -340,7 +340,7 @@ def desenhar_pergunta_melhorado(
         opcoes_processadas.append((letra, linhas_opcao, altura_opcao))
 
     # Altura total do conteúdo (pergunta + espaço + alternativas)
-    altura_pergunta = len(linhas_perg[:5]) * 26 + 20
+    altura_pergunta = len(linhas_perg) * 26 + 20
     altura_alternativas = sum(h for _, _, h in opcoes_processadas) + ALT_ESPACAMENTO * max(
         0, len(opcoes_processadas) - 1
     )
@@ -355,7 +355,7 @@ def desenhar_pergunta_melhorado(
     screen.set_clip(conteudo_rect)
 
     y_perg = conteudo_top - quiz_scroll
-    for i, linha in enumerate(linhas_perg[:5]):
+    for i, linha in enumerate(linhas_perg):
         render = fonte_perg.render(linha, True, CORES["texto"])
         screen.blit(render, (box_x + 30, y_perg + i * 26))
 
@@ -488,13 +488,15 @@ def inicializar_intro():
         try:
             sprite = carregar_imagem("personagens", nome)
             intro_frames.append(pygame.transform.scale(sprite, (135, 220)))
-        except:
+        except Exception as e:
+            print(f"Erro ao carregar frame de intro '{nome}': {e}")
             continue
     if not intro_frames:
         try:
             fallback = carregar_imagem("personagens", "Areninha4 2.png")
             intro_frames = [pygame.transform.scale(fallback, (220, 220))]
-        except:
+        except Exception as e:
+            print(f"Erro ao carregar frame de fallback de intro: {e}")
             intro_frames = []
 
     intro_frame_index = 0
